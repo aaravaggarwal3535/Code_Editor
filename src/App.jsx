@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import './App.css'
 
 function App() {
+  const navigate = useNavigate()
   const [code, setCode] = useState('// Write your code here...\nconsole.log("Hello, world!");')
   const [language, setLanguage] = useState('javascript')
   const [theme, setTheme] = useState('vs-dark')
@@ -50,10 +52,19 @@ function App() {
     setOutput('')
   }
 
+  const goToHome = () => {
+    navigate('/')
+  }
+
   return (
     <div className="code-editor-container">
       <header>
-        <h1>Online Code Editor</h1>
+        <div className="header-left">
+          <button className="back-button" onClick={goToHome}>
+            ← Back to Home
+          </button>
+          <h1>Online Code Editor</h1>
+        </div>
         <div className="controls">
           <select value={language} onChange={handleLanguageChange}>
             <option value="javascript">JavaScript</option>

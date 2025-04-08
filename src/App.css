@@ -103,7 +103,12 @@ select, button {
   font-size: 0.9rem;
 }
 
-button:hover {
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
   background-color: #2a2a2a;
 }
 
@@ -113,8 +118,14 @@ button:hover {
   border: 1px solid #444;
 }
 
-.output-container {
+.output-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   margin-top: 1rem;
+}
+
+.output-container {
   padding: 1rem;
   background-color: #1a1a1a;
   border-radius: 8px;
@@ -123,6 +134,13 @@ button:hover {
   max-height: 200px;
   overflow: auto;
   border: 1px solid #444;
+}
+
+.preview-container {
+  min-height: 0;
+  border-radius: 8px;
+  border: 1px solid #444;
+  overflow: hidden;
 }
 
 .output-container h3 {

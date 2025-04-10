@@ -1018,3 +1018,125 @@ pre {
     padding: 0 5px;
   }
 }
+
+/* AI Button Styling */
+.ai-button {
+  background-color: #8e44ad;
+  color: white;
+  border: none;
+  transition: background-color 0.3s;
+}
+
+.ai-button:hover:not(:disabled) {
+  background-color: #9b59b6;
+}
+
+/* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.ai-modal {
+  background-color: #292929;
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+
+.ai-modal h3 {
+  margin-top: 0;
+  color: #9b59b6;
+  border-bottom: 1px solid #444;
+  padding-bottom: 12px;
+}
+
+.ai-modal textarea {
+  width: 100%;
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  padding: 12px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 16px;
+}
+
+.ai-explanation {
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  border-left: 3px solid #9b59b6;
+}
+
+.ai-explanation h4 {
+  margin-top: 0;
+  color: #9b59b6;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-buttons button {
+  padding: 8px 16px;
+}
+
+.modal-buttons button.primary {
+  background-color: #8e44ad;
+}
+
+.modal-buttons button.primary:hover:not(:disabled) {
+  background-color: #9b59b6;
+}
+
+@media (prefers-color-scheme: light) {
+  .ai-modal {
+    background-color: #f5f5f5;
+    color: #333;
+  }
+  
+  .ai-modal textarea,
+  .ai-explanation {
+    background-color: #fff;
+    border-color: #ddd;
+    color: #333;
+  }
+  
+  .ai-modal h3,
+  .ai-explanation h4 {
+    color: #6c3483;
+  }
+  
+  .ai-explanation {
+    border-left-color: #6c3483;
+  }
+  
+  .modal-buttons button.primary {
+    background-color: #6c3483;
+    color: white;
+  }
+  
+  .modal-buttons button.primary:hover:not(:disabled) {
+    background-color: #8e44ad;
+  }
+}

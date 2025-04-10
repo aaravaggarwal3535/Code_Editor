@@ -5,6 +5,7 @@ const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
+const axios = require('axios');
 
 const writeFileAsync = promisify(fs.writeFile);
 const unlinkAsync = promisify(fs.unlink);
@@ -143,6 +144,56 @@ app.post('/execute', async (req, res) => {
     res.json({
       result: '',
       error: error.message
+    });
+  }
+});
+
+app.post('/ai/improve', async (req, res) => {
+  try {
+    const { code, language, prompt } = req.body;
+    
+    console.log(`Processing AI request for language: ${language}`);
+    console.log(`Prompt: ${prompt}`);
+    console.log(`Code length: ${code.length} characters`);
+    
+    // Use the port where your AI service is actually running
+    const aiPort = process.env.AI_PORT || 8001;
+    
+    // First check if ping works - USING IPv4 ADDRESS
+    try {
+      console.log('Pinging AI service...');
+      await axios.get(`http://127.0.0.1:${aiPort}/ping`);
+      console.log('AI service ping successful');
+    } catch (pingError) {
+      console.error('AI service ping failed:', pingError.message);
+      return res.status(503).json({
+        error: 'AI service is not running',
+        details: 'Unable to connect to the AI service'
+      });
+    }
+    
+    // Try the direct-improve endpoint with IPv4 address
+    console.log('Sending request to AI service...');
+    const response = await axios.post(`http://127.0.0.1:${aiPort}/ai/direct-improve`, {
+      code,
+      language,
+      prompt
+    });
+    
+    console.log('AI service response received');
+    res.json(response.data);
+  } catch (error) {
+    console.error('AI service error:', error.message);
+    
+    // Log more detailed error information
+    if (error.response) {
+      console.error('Error data:', error.response.data);
+      console.error('Error status:', error.response.status);
+    }
+    
+    res.status(500).json({
+      error: 'Failed to process with AI service',
+      details: error.response?.data?.detail || error.message
     });
   }
 });

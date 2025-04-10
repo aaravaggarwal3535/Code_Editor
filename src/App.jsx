@@ -15,7 +15,18 @@ function App() {
   const starterCode = {
     javascript: '// Write your JavaScript code here\nconsole.log("Hello, world!");',
     python: '# Write your Python code here\nprint("Hello, world!")',
-    java: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, world!");\n    }\n}',
+    java: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java World!");
+        
+        // You can add more code here
+        int sum = 0;
+        for (int i = 1; i <= 10; i++) {
+            sum += i;
+        }
+        System.out.println("Sum of numbers 1-10: " + sum);
+    }
+}`,
     cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, world!" << std::endl;\n    return 0;\n}',
     html: '<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n</head>\n<body>\n    <h1>Hello, world!</h1>\n</body>\n</html>',
     css: '/* Write your CSS here */\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f0f0f0;\n    color: #333;\n}'
@@ -36,9 +47,11 @@ function App() {
     setTheme(e.target.value)
   }
 
+  // Update the runCode function
+
   const runCode = async () => {
-    setIsLoading(true)
-    setOutput('Running code...')
+    setIsLoading(true);
+    setOutput('Running code...');
 
     try {
       if (language === 'javascript' && window.location.hostname === 'localhost') {
@@ -109,29 +122,42 @@ function App() {
         
         setOutput('CSS preview rendered below')
       } else {
-        // Send code to backend for execution
+        // For other languages, send to backend
+        setOutput('Sending to backend server...');
+        
         const response = await fetch('http://localhost:3001/execute', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ code, language })
-        })
+        });
         
-        const data = await response.json()
+        // Check if the request was successful
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
         
-        if (data.error) {
-          setOutput(`${data.result}\nError: ${data.error}`)
+        const data = await response.json();
+        
+        // For debugging purposes, show more details about the response
+        console.log('Backend response:', data);
+        
+        if (data.error && data.error.trim() !== '') {
+          setOutput(`${data.result || ''}\n\nError: ${data.error}`);
+        } else if (data.result) {
+          setOutput(data.result);
         } else {
-          setOutput(data.result)
+          setOutput('No output received from the program.');
         }
       }
     } catch (error) {
-      setOutput(`Error: ${error.message}`)
+      console.error('Code execution error:', error);
+      setOutput(`Failed to execute code: ${error.message}`);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const clearOutput = () => {
     setOutput('')

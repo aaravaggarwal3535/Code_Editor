@@ -3,20 +3,26 @@ import Editor from '@monaco-editor/react'
 import './App.css'
 
 function App() {
+  // Core state
   const [code, setCode] = useState('// Write your code here...\nconsole.log("Hello, world!");')
   const [language, setLanguage] = useState('javascript')
   const [theme, setTheme] = useState('vs-dark')
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   
+  // UI state
+  const [isSidebarOpen, setSidebarOpen] = useState(true)
+  const [isOutputExpanded, setIsOutputExpanded] = useState(false)
+  
   // AI Assistant state
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [aiPrompt, setAIPrompt] = useState('');
-  const [isAIProcessing, setIsAIProcessing] = useState(false);
-  const [aiExplanation, setAIExplanation] = useState('');
-  const aiModalRef = useRef(null);
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [aiPrompt, setAIPrompt] = useState('')
+  const [isAIProcessing, setIsAIProcessing] = useState(false)
+  const [aiExplanation, setAIExplanation] = useState('')
+  const aiModalRef = useRef(null)
+  const previewRef = useRef(null)
 
-  // Sample starter code for different languages
+  // Language configurations
   const starterCode = {
     javascript: '// Write your JavaScript code here\nconsole.log("Hello, world!");',
     python: '# Write your Python code here\nprint("Hello, world!")',
@@ -26,79 +32,106 @@ function App() {
     css: '/* Write your CSS here */\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f0f0f0;\n    color: #333;\n}'
   }
 
-  const handleCodeChange = (value) => {
-    setCode(value)
+  const languageIcons = {
+    javascript: '📜',
+    python: '🐍',
+    java: '☕',
+    cpp: '⚙️',
+    html: '🌐',
+    css: '🎨'
   }
 
-  const handleLanguageChange = (e) => {
-    const newLanguage = e.target.value
-    setLanguage(newLanguage)
-    // Set starter code for the selected language
-    setCode(starterCode[newLanguage] || code)
+  // Event handlers
+  const handleCodeChange = (value) => {
+    setCode(value || '')
+  }
+
+  const handleLanguageChange = (lang) => {
+    setLanguage(lang)
+    setCode(starterCode[lang] || code)
+    clearOutput()
   }
 
   const handleThemeChange = (e) => {
     setTheme(e.target.value)
   }
 
-  // AI Improve function
+  const toggleSidebar = () => {
+    setSidebarOpen(!isSidebarOpen)
+  }
+
+  const toggleOutputPanel = () => {
+    setIsOutputExpanded(!isOutputExpanded)
+  }
+
+  // AI Assistant functions
+  const openAIModal = () => setShowAIModal(true)
+  
+  const closeAIModal = () => {
+    setShowAIModal(false)
+    setAIPrompt('')
+    setAIExplanation('')
+  }
+
+  const handleAIPromptChange = (e) => {
+    setAIPrompt(e.target.value)
+  }
+
   const handleAIImprove = async () => {
     if (!aiPrompt.trim()) {
-      alert('Please enter a prompt for the AI');
-      return;
+      return
     }
     
-    setIsAIProcessing(true);
+    setIsAIProcessing(true)
     
     try {
       const response = await fetch('http://localhost:3001/ai/improve', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          code,
-          language,
-          prompt: aiPrompt
-        })
-      });
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language, prompt: aiPrompt })
+      })
       
       if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
+        throw new Error(`Server responded with status: ${response.status}`)
       }
       
-      const data = await response.json();
-      setCode(data.updated_code);
-      setAIExplanation(data.explanation);
+      const data = await response.json()
+      setCode(data.updated_code)
+      setAIExplanation(data.explanation)
     } catch (error) {
-      console.error('AI processing error:', error);
-      setAIExplanation(`Error: ${error.message}`);
+      console.error('AI processing error:', error)
+      setAIExplanation(`Error: ${error.message}`)
     } finally {
-      setIsAIProcessing(false);
+      setIsAIProcessing(false)
     }
-  };
+  }
 
-  // Click outside handler for modal
+  // Click outside handler for AI modal
   useEffect(() => {
-    function handleClickOutside(event) {
+    const handleClickOutside = (event) => {
       if (aiModalRef.current && !aiModalRef.current.contains(event.target)) {
-        setShowAIModal(false);
+        closeAIModal()
       }
     }
     
-    document.addEventListener("mousedown", handleClickOutside);
+    if (showAIModal) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAIModal])
 
+  // Code execution
   const runCode = async () => {
     setIsLoading(true)
     setOutput('Running code...')
+    setIsOutputExpanded(true)
 
     try {
       if (language === 'javascript' && window.location.hostname === 'localhost') {
-        // Run JavaScript in the browser for local development
+        // Run JavaScript in the browser
         let consoleOutput = []
         const originalConsoleLog = console.log
         console.log = (...args) => {
@@ -107,197 +140,348 @@ function App() {
         
         try {
           eval(code)
-          setOutput(consoleOutput.join('\n'))
+          setOutput(consoleOutput.join('\n') || 'Code executed successfully (no output)')
         } catch (error) {
           setOutput(`Error: ${error.message}`)
         }
         
-        // Restore original console.log
         console.log = originalConsoleLog
       } else if (language === 'html') {
-        // For HTML, create a preview in an iframe
-        const iframe = document.createElement('iframe')
-        iframe.style.width = '100%'
-        iframe.style.height = '300px'
-        iframe.style.border = 'none'
-        
-        const preview = document.getElementById('preview-container')
-        preview.innerHTML = ''
-        preview.appendChild(iframe)
-        
-        const iframeDocument = iframe.contentDocument || iframe.contentWindow.document
-        iframeDocument.open()
-        iframeDocument.write(code)
-        iframeDocument.close()
-        
-        setOutput('HTML preview rendered below')
+        // For HTML, render preview
+        renderHTMLPreview(code)
+        setOutput('HTML preview rendered')
       } else if (language === 'css') {
-        // For CSS, show a preview with some HTML
-        const html = `
-          <html>
-            <head>
-              <style>${code}</style>
-            </head>
-            <body>
-              <div class="container">
-                <h1>CSS Preview</h1>
-                <p>This is a paragraph to preview your CSS.</p>
-                <button>A Button</button>
-                <div class="box">A div with class "box"</div>
-              </div>
-            </body>
-          </html>
-        `
-        
-        const iframe = document.createElement('iframe')
-        iframe.style.width = '100%'
-        iframe.style.height = '300px'
-        iframe.style.border = 'none'
-        
-        const preview = document.getElementById('preview-container')
-        preview.innerHTML = ''
-        preview.appendChild(iframe)
-        
-        const iframeDocument = iframe.contentDocument || iframe.contentWindow.document
-        iframeDocument.open()
-        iframeDocument.write(html)
-        iframeDocument.close()
-        
-        setOutput('CSS preview rendered below')
+        // For CSS, render with test HTML
+        renderCSSPreview(code)
+        setOutput('CSS preview rendered')
       } else {
         // For other languages, send to backend
-        setOutput('Sending to backend server...');
-        
-        const response = await fetch('http://localhost:3001/execute', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ code, language })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        console.log('Backend response:', data);
-        
-        if (data.error && data.error.trim() !== '') {
-          setOutput(`${data.result || ''}\n\nError: ${data.error}`);
-        } else if (data.result) {
-          setOutput(data.result);
-        } else {
-          setOutput('No output received from the program.');
-        }
+        await executeOnBackend()
       }
     } catch (error) {
-      console.error('Code execution error:', error);
-      setOutput(`Failed to execute code: ${error.message}`);
+      console.error('Code execution error:', error)
+      setOutput(`Failed to execute code: ${error.message}`)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
+  // Helper function to execute code on the backend
+  const executeOnBackend = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.error && data.error.trim() !== '') {
+        setOutput(`${data.result || ''}\n\nError: ${data.error}`)
+      } else if (data.result) {
+        setOutput(data.result)
+      } else {
+        setOutput('No output received from the program.')
+      }
+    } catch (error) {
+      throw error
+    }
+  }
+
+  // HTML/CSS preview rendering
+  const renderHTMLPreview = (htmlCode) => {
+    if (!previewRef.current) return
+    
+    const iframe = document.createElement('iframe')
+    iframe.style.width = '100%'
+    iframe.style.height = '100%'
+    iframe.style.border = 'none'
+    
+    previewRef.current.innerHTML = ''
+    previewRef.current.appendChild(iframe)
+    
+    const iframeDocument = iframe.contentDocument || iframe.contentWindow.document
+    iframeDocument.open()
+    iframeDocument.write(htmlCode)
+    iframeDocument.close()
+  }
+
+  const renderCSSPreview = (cssCode) => {
+    if (!previewRef.current) return
+    
+    const html = `
+      <html>
+        <head>
+          <style>${cssCode}</style>
+        </head>
+        <body>
+          <div style="padding: 20px; font-family: system-ui, -apple-system, sans-serif;">
+            <h1>CSS Preview</h1>
+            <p>This is a paragraph to preview your CSS styling.</p>
+            <button>Button Element</button>
+            <div className="box" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;">
+              A div with class "box"
+            </div>
+            <ul style="margin-top: 20px;">
+              <li>List item 1</li>
+              <li>List item 2</li>
+              <li>List item 3</li>
+            </ul>
+          </div>
+        </body>
+      </html>
+    `
+    
+    const iframe = document.createElement('iframe')
+    iframe.style.width = '100%'
+    iframe.style.height = '100%'
+    iframe.style.border = 'none'
+    
+    previewRef.current.innerHTML = ''
+    previewRef.current.appendChild(iframe)
+    
+    const iframeDocument = iframe.contentDocument || iframe.contentWindow.document
+    iframeDocument.open()
+    iframeDocument.write(html)
+    iframeDocument.close()
+  }
+
+  // Clear output and preview
   const clearOutput = () => {
     setOutput('')
-    const preview = document.getElementById('preview-container')
-    if (preview) {
-      preview.innerHTML = ''
+    if (previewRef.current) {
+      previewRef.current.innerHTML = ''
     }
   }
 
+  // Get filename based on language
+  const getFileName = () => {
+    switch (language) {
+      case 'javascript': return 'script.js'
+      case 'python': return 'main.py'
+      case 'java': return 'Main.java'
+      case 'cpp': return 'main.cpp'
+      case 'html': return 'index.html'
+      case 'css': return 'styles.css'
+      default: return 'file.txt'
+    }
+  }
+
+  // Render the UI
   return (
-    <div className="code-editor-container">
-      <header>
-        <h1>Online Code Editor</h1>
-        <div className="controls">
-          <select value={language} onChange={handleLanguageChange}>
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-          </select>
-          <select value={theme} onChange={handleThemeChange}>
-            <option value="vs-dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-          <button 
-            onClick={() => setShowAIModal(true)}
-            className="ai-button"
-          >
-            AI Assist
+    <div className={`editor-container ${theme === 'vs-dark' ? '' : 'light-theme'}`}>
+      {/* Header */}
+      <header className="editor-header">
+        <div className="editor-title">
+          <span className="editor-logo">⌨️</span>
+          <span>Code Editor - {getFileName()}</span>
+        </div>
+        <div className="editor-controls">
+          <button onClick={toggleSidebar} className="toolbar-button">
+            {isSidebarOpen ? '◀ Hide Sidebar' : '▶ Show Sidebar'}
           </button>
-          <button onClick={runCode} disabled={isLoading}>
-            {isLoading ? 'Running...' : 'Run'}
-          </button>
-          <button onClick={clearOutput}>Clear Output</button>
         </div>
       </header>
-      
-      <div className="editor-container">
-        <Editor
-          height="50vh"
-          defaultLanguage="javascript"
-          language={language}
-          theme={theme}
-          value={code}
-          onChange={handleCodeChange}
-          options={{
-            minimap: { enabled: true },
-            fontSize: 14,
-            tabSize: 2,
-            automaticLayout: true,
-          }}
-        />
+
+      {/* Main content */}
+      <div className="editor-main">
+        {/* Sidebar */}
+        <aside className={`editor-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
+          <div className="sidebar-header">
+            <span>Explorer</span>
+            <button className="sidebar-toggle" onClick={toggleSidebar}>×</button>
+          </div>
+          
+          <div className="sidebar-content">
+            <div className="sidebar-section">
+              <div className="section-title">Languages</div>
+              <div className="language-selector">
+                {Object.keys(starterCode).map((lang) => (
+                  <div 
+                    key={lang}
+                    className={`language-item ${language === lang ? 'active' : ''}`}
+                    onClick={() => handleLanguageChange(lang)}
+                  >
+                    <span className="language-icon">{languageIcons[lang]}</span>
+                    <span>{lang.charAt(0).toUpperCase() + lang.slice(1)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="sidebar-section">
+              <div className="section-title">Settings</div>
+              <div className="theme-selector">
+                <label htmlFor="theme-select">Editor Theme</label>
+                <select 
+                  id="theme-select"
+                  value={theme} 
+                  onChange={handleThemeChange}
+                >
+                  <option value="vs-dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </div>
+            </div>
+
+            <button 
+              onClick={runCode} 
+              disabled={isLoading} 
+              className="run-button-sidebar"
+            >
+              {isLoading ? '⏳ Running...' : '▶ Run Code'}
+            </button>
+          </div>
+        </aside>
+
+        {/* Editor content */}
+        <main className="editor-content">
+          <div className="editor-tabs">
+            <div className="editor-tab active">
+              <span className="language-icon">{languageIcons[language]}</span>
+              <span className="tab-name">{getFileName()}</span>
+            </div>
+          </div>
+
+          <div className="monaco-editor-wrapper">
+            <Editor
+              height="100%"
+              language={language}
+              theme={theme}
+              value={code}
+              onChange={handleCodeChange}
+              options={{
+                minimap: { enabled: true },
+                fontSize: 14,
+                tabSize: 2,
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                lineNumbers: 'on',
+                renderLineHighlight: 'all',
+                scrollbar: {
+                  vertical: 'auto',
+                  horizontal: 'auto'
+                }
+              }}
+            />
+          </div>
+
+          {/* Toolbar */}
+          <div className="editor-toolbar">
+            <button 
+              onClick={runCode} 
+              disabled={isLoading} 
+              className="toolbar-button primary"
+              title="Run code (Ctrl+Enter)"
+            >
+              {isLoading ? '⏳ Running...' : '▶ Run'}
+            </button>
+            <button 
+              onClick={openAIModal} 
+              className="toolbar-button ai"
+              title="Get AI assistance"
+            >
+              🤖 AI Assist
+            </button>
+            <div className="toolbar-spacer"></div>
+            <button 
+              onClick={clearOutput} 
+              className="toolbar-button"
+              title="Clear output"
+            >
+              🧹 Clear
+            </button>
+          </div>
+
+          {/* Output panel */}
+          <div className={`output-panel ${isOutputExpanded ? '' : 'collapsed'}`}>
+            <div className="output-header" onClick={toggleOutputPanel}>
+              <h3>Output</h3>
+              <div className="output-controls">
+                <button className="output-control" onClick={(e) => {
+                  e.stopPropagation();
+                  clearOutput();
+                }} title="Clear output">
+                  🧹
+                </button>
+                <button className="output-control" onClick={(e) => {
+                  e.stopPropagation();
+                  toggleOutputPanel();
+                }} title="Toggle panel">
+                  {isOutputExpanded ? '▼' : '▲'}
+                </button>
+              </div>
+            </div>
+            <div className="output-content">
+              <pre>{output}</pre>
+              {(language === 'html' || language === 'css') && (
+                <div ref={previewRef} className="preview-container"></div>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
-      
-      <div className="output-section">
-        <div className="output-container">
-          <h3>Output:</h3>
-          <pre>{output}</pre>
+
+      {/* Status bar */}
+      <footer className="status-bar">
+        <div className="status-left">
+          <div className="status-item">
+            {languageIcons[language]} {language.charAt(0).toUpperCase() + language.slice(1)}
+          </div>
         </div>
-        
-        <div id="preview-container" className="preview-container"></div>
-      </div>
-      
+        <div className="status-right">
+          <div className="status-item">
+            {theme === 'vs-dark' ? '🌙 Dark' : '☀️ Light'}
+          </div>
+        </div>
+      </footer>
+
       {/* AI Modal */}
       {showAIModal && (
         <div className="modal-overlay">
           <div className="ai-modal" ref={aiModalRef}>
-            <h3>AI Code Assistant</h3>
-            <p>Describe what you want to improve or change in your code:</p>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAIPrompt(e.target.value)}
-              placeholder="E.g., Optimize this code for performance, Add error handling, Convert to async/await..."
-              rows={4}
-              disabled={isAIProcessing}
-            />
-            
-            {aiExplanation && (
-              <div className="ai-explanation">
-                <h4>AI Explanation:</h4>
-                <div>{aiExplanation}</div>
-              </div>
-            )}
-            
-            <div className="modal-buttons">
+            <div className="modal-header">
+              <span>🤖</span>
+              <h2>AI Code Assistant</h2>
+            </div>
+            <div className="modal-content">
+              <label htmlFor="ai-prompt">Describe what you want to improve:</label>
+              <textarea
+                id="ai-prompt"
+                value={aiPrompt}
+                onChange={handleAIPromptChange}
+                placeholder="E.g., Optimize this code, Add error handling, Convert to async/await..."
+                rows={4}
+                disabled={isAIProcessing}
+              />
+              
+              {aiExplanation && (
+                <div className="ai-explanation">
+                  <strong>AI Explanation:</strong>
+                  <p>{aiExplanation}</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
               <button 
-                onClick={() => setShowAIModal(false)}
+                onClick={closeAIModal}
+                className="toolbar-button"
                 disabled={isAIProcessing}
               >
                 Cancel
               </button>
               <button 
                 onClick={handleAIImprove}
+                className="toolbar-button primary"
                 disabled={isAIProcessing || !aiPrompt.trim()}
-                className="primary"
               >
-                {isAIProcessing ? 'Processing...' : 'Improve Code'}
+                {isAIProcessing ? '⏳ Processing...' : '✨ Improve Code'}
               </button>
             </div>
           </div>

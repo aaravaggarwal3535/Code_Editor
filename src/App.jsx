@@ -18,6 +18,8 @@ function App() {
   const [showAIModal, setShowAIModal] = useState(false)
   const [aiPrompt, setAIPrompt] = useState('')
   const [isAIProcessing, setIsAIProcessing] = useState(false)
+  const [aiSessionId, setAISessionId] = useState(null)  // Store the session ID
+  const [aiConversationHistory, setAIConversationHistory] = useState([]) // Store conversation history
   const [aiExplanation, setAIExplanation] = useState('')
   const aiModalRef = useRef(null)
   const previewRef = useRef(null)
@@ -276,38 +278,88 @@ function App() {
 
   const handleAIImprove = async () => {
     if (!aiPrompt.trim()) {
-      return
+      return;
     }
     
-    setIsAIProcessing(true)
+    setIsAIProcessing(true);
     
     try {
       const response = await fetch('http://localhost:3001/ai/improve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, language, prompt: aiPrompt })
-      })
+        body: JSON.stringify({ 
+          code, 
+          language, 
+          prompt: aiPrompt,
+          session_id: aiSessionId // Include the session ID if we have one
+        })
+      });
       
       if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`)
+        throw new Error(`Server responded with status: ${response.status}`);
       }
       
-      const data = await response.json()
-      setCode(data.updated_code)
+      const data = await response.json();
+      
+      // Save the session ID for future requests
+      if (data.session_id) {
+        setAISessionId(data.session_id);
+      }
+      
+      // Update the AI conversation history
+      setAIConversationHistory(prev => [
+        ...prev,
+        {
+          type: 'user',
+          content: aiPrompt,
+          timestamp: new Date().toISOString()
+        },
+        {
+          type: 'ai',
+          content: data.explanation,
+          code: data.updated_code,
+          timestamp: new Date().toISOString()
+        }
+      ]);
+      
+      // Update the code editor
+      setCode(data.updated_code);
       if (currentFile) {
         setFiles(prevFiles => 
           prevFiles.map(file => 
             file.id === currentFile.id ? {...file, content: data.updated_code} : file
           )
-        )
+        );
       }
-      setAIExplanation(data.explanation)
+      
+      setAIExplanation(data.explanation);
+      setAIPrompt(''); // Clear the prompt field after successful processing
     } catch (error) {
-      console.error('AI processing error:', error)
-      setAIExplanation(`Error: ${error.message}`)
+      console.error('AI processing error:', error);
+      setAIExplanation(`Error: ${error.message}`);
     } finally {
-      setIsAIProcessing(false)
+      setIsAIProcessing(false);
     }
+  };
+
+  const renderConversationHistory = () => {
+    if (aiConversationHistory.length === 0) return null
+    
+    return (
+      <div className="ai-conversation-history">
+        <h3>Conversation History</h3>
+        {aiConversationHistory.map((item, index) => (
+          <div key={index} className="conversation-item">
+            <div className="prompt">
+              <strong>You:</strong> {item.prompt}
+            </div>
+            <div className="response">
+              <strong>AI:</strong> <span className="explanation">{item.explanation.slice(0, 100)}...</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   // Click outside handler for modals
@@ -1037,6 +1089,31 @@ function App() {
               <span>🤖</span>
               <h2>AI Code Assistant</h2>
             </div>
+            
+            {/* Conversation History */}
+            {aiConversationHistory.length > 0 && (
+              <div className="ai-conversation-history">
+                <h3>Conversation History</h3>
+                {aiConversationHistory.map((entry, index) => (
+                  <div key={index} className={`conversation-entry ${entry.type}`}>
+                    <div className="conversation-header">
+                      <strong>{entry.type === 'user' ? '👤 You' : '🤖 AI'}</strong>
+                      <span className="conversation-time">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="conversation-content">
+                      {entry.type === 'user' ? (
+                        <p>{entry.content}</p>
+                      ) : (
+                        <p>{entry.content}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
             <div className="modal-content">
               <label htmlFor="ai-prompt">Describe what you want to improve:</label>
               <textarea
@@ -1055,13 +1132,28 @@ function App() {
                 </div>
               )}
             </div>
+            
             <div className="modal-footer">
+              {aiSessionId && (
+                <button 
+                  onClick={() => {
+                    // Clear the session
+                    setAISessionId(null);
+                    setAIConversationHistory([]);
+                    setAIExplanation('');
+                  }}
+                  className="toolbar-button secondary"
+                  disabled={isAIProcessing}
+                >
+                  New Session
+                </button>
+              )}
               <button 
                 onClick={closeAIModal}
                 className="toolbar-button"
                 disabled={isAIProcessing}
               >
-                Cancel
+                Close
               </button>
               <button 
                 onClick={handleAIImprove}

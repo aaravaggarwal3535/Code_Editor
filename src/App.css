@@ -874,6 +874,16 @@
   background-color: #9b59b6;
 }
 
+.toolbar-button.secondary {
+  background-color: var(--panel-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.toolbar-button.secondary:hover {
+  background-color: var(--sidebar-bg);
+}
+
 .toolbar-spacer {
   flex: 1;
 }
@@ -1071,6 +1081,8 @@
   color: var(--text-color);
   display: flex;
   flex-direction: column;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .ai-modal .modal-content textarea {
@@ -1093,6 +1105,62 @@
   font-size: 13px;
   max-height: 200px;
   overflow-y: auto;
+}
+
+/* AI Conversation History Styles */
+.ai-conversation-history {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 15px;
+  padding: 8px;
+  background-color: var(--panel-bg);
+}
+
+.ai-conversation-history h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 5px;
+}
+
+.conversation-entry {
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.conversation-entry.user {
+  background-color: var(--sidebar-bg);
+  margin-right: 15px;
+  border-left: 3px solid var(--accent-color);
+}
+
+.conversation-entry.ai {
+  background-color: rgba(var(--primary-button-rgb), 0.1);
+  margin-left: 15px;
+  border-left: 3px solid var(--primary-button);
+}
+
+.conversation-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.conversation-time {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.conversation-content {
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: break-word;
 }
 
 /* Light theme */

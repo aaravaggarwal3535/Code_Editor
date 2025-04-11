@@ -1,17 +1,21 @@
 :root {
-  --primary-color: #007acc;
+  --primary-color: #0969da;
   --secondary-color: #1e1e1e;
-  --text-color: #cccccc;
-  --text-dark: #333333;
-  --bg-color: #1e1e1e;
-  --bg-light: #252526;
-  --bg-lighter: #2d2d2d;
-  --border-color: #474747;
-  --input-bg: #3c3c3c;
-  --hover-bg: #2a2d2e;
-  --accent-color: #0e639c;
-  --error-color: #f44336;
-  --success-color: #4caf50;
+  --text-color: #e6edf3;
+  --text-dark: #24292f;
+  --bg-color: #0d1117;
+  --bg-light: #161b22;
+  --bg-lighter: #21262d;
+  --border-color: #30363d;
+  --input-bg: #0d1117;
+  --hover-bg: #1f2937;
+  --accent-color: #1f6feb;
+  --error-color: #f85149;
+  --success-color: #3fb950;
+  --file-highlight: rgba(56, 139, 253, 0.15);
+  --inactive-tab: #21262d;
+  --active-tab: #0d1117;
+  --selection-bg: #264f78;
 }
 
 * {
@@ -66,11 +70,410 @@
   gap: 16px;
 }
 
+/* GitHub-style header */
+.github-header {
+  height: 56px;
+  background-color: var(--bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.github-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.github-logo {
+  font-size: 24px;
+  color: white;
+}
+
+.github-repo-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.github-repo-path {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.repo-owner {
+  color: var(--text-color);
+}
+
+.repo-separator {
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.repo-name {
+  color: var(--primary-color);
+}
+
+.github-repo-visibility {
+  font-size: 12px;
+  color: var(--text-color);
+  opacity: 0.7;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0 6px;
+}
+
+.github-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.github-header-button {
+  background-color: var(--bg-lighter);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.github-header-button:hover {
+  background-color: var(--hover-bg);
+}
+
+/* GitHub navigation */
+.github-navigation {
+  height: 48px;
+  background-color: var(--bg-color);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.github-nav-item {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-color);
+  cursor: pointer;
+  position: relative;
+}
+
+.github-nav-item:hover {
+  color: var(--primary-color);
+}
+
+.github-nav-item.active {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.github-nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary-color);
+}
+
+.github-nav-icon {
+  font-size: 16px;
+}
+
+.github-nav-text {
+  font-size: 14px;
+}
+
+/* GitHub-specific sidebar views */
+.git-header, .pr-header, .debug-header, .extensions-header {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.branch-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-top: 6px;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.git-section {
+  margin: 10px 0;
+}
+
+.git-section-title {
+  padding: 6px 12px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.git-files {
+  margin-top: 4px;
+}
+
+.git-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.git-file:hover {
+  background-color: var(--hover-bg);
+  cursor: pointer;
+}
+
+.git-file-status {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.git-file-status.modified {
+  color: #dcad04;
+  border: 1px solid #dcad04;
+}
+
+.git-file-status.added {
+  color: var(--success-color);
+  border: 1px solid var(--success-color);
+}
+
+.git-file-status.deleted {
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+}
+
+.git-commit {
+  margin: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.git-commit-input {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.commit-button {
+  background-color: var(--success-color) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.commit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+/* PR View */
+.pr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pr-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.pr-item:hover {
+  background-color: var(--hover-bg);
+}
+
+.pr-title {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.pr-info {
+  font-size: 12px;
+  opacity: 0.7;
+  display: flex;
+  gap: 8px;
+}
+
+.pr-create {
+  margin: 12px;
+}
+
+/* Extensions View */
+.extensions-search {
+  margin: 0 12px 12px;
+  padding: 6px 8px;
+  width: calc(100% - 24px);
+  font-size: 13px;
+  color: var(--text-color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.extensions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px;
+}
+
+.extension-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.extension-item:hover {
+  background-color: var(--hover-bg);
+  cursor: pointer;
+}
+
+.extension-icon {
+  font-size: 20px;
+  color: var(--text-color);
+}
+
+.extension-info {
+  flex: 1;
+}
+
+.extension-name {
+  font-size: 13px;
+}
+
+.extension-publisher {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.extension-button {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-color);
+  background-color: var(--bg-lighter);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* GitHub-style status bar */
+.github-status-bar {
+  height: 24px;
+  background-color: var(--bg-lighter);
+  color: var(--text-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  font-size: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.github-status-left, .github-status-right {
+  display: flex;
+  align-items: center;
+}
+
+.github-status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 0 0;
+  cursor: pointer;
+}
+
+.github-status-item:hover {
+  color: var(--primary-color);
+}
+
+.status-icon {
+  font-size: 12px;
+}
+
 /* Main content area */
 .editor-main {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+/* Activity bar */
+.activity-bar {
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-light);
+  border-right: 1px solid var(--border-color);
+  z-index: 10;
+}
+
+.activity-bar-item {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 20px;
+  color: var(--text-color);
+  opacity: 0.7;
+  cursor: pointer;
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+.activity-bar-item:hover {
+  opacity: 1;
+}
+
+.activity-bar-item.active {
+  opacity: 1;
+}
+
+.activity-bar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background-color: var(--primary-color);
 }
 
 /* Sidebar */
@@ -116,6 +519,154 @@
   flex: 1;
 }
 
+/* File Explorer */
+.sidebar-actions {
+  display: flex;
+  padding: 0 16px 8px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.sidebar-action-button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.sidebar-action-button:hover {
+  background-color: var(--hover-bg);
+}
+
+.file-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  overflow-y: auto;
+}
+
+.file-item {
+  padding: 4px 12px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-color);
+  border-radius: 0;
+}
+
+.file-item:hover {
+  background-color: var(--hover-bg);
+}
+
+.file-item.active {
+  background-color: var(--file-highlight);
+}
+
+.file-icon, .folder-icon {
+  font-size: 16px;
+  width: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.file-name, .folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.folder-item {
+  padding: 4px 12px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-color);
+}
+
+.folder-item:hover {
+  background-color: var(--hover-bg);
+}
+
+.folder-contents {
+  display: flex;
+  flex-direction: column;
+  padding-left: 16px;
+  gap: 2px;
+}
+
+/* Search View */
+.search-view {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+}
+
+.search-input {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+}
+
+.search-placeholder {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-color);
+  opacity: 0.6;
+  font-size: 13px;
+}
+
+/* Git View */
+.git-view, .debug-view, .extensions-view {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.git-placeholder, .debug-placeholder, .extensions-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.sidebar-button {
+  padding: 6px 10px;
+  background-color: var(--bg-lighter);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  border-radius: 2px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sidebar-button:hover {
+  background-color: var(--hover-bg);
+}
+
+/* Sidebar section */
 .sidebar-section {
   margin-bottom: 16px;
 }
@@ -233,7 +784,7 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  background-color: var(--bg-color);
+  background-color: var(--inactive-tab);
   color: var(--text-color);
   border-right: 1px solid var(--border-color);
   cursor: pointer;
@@ -242,13 +793,28 @@
 }
 
 .editor-tab.active {
-  background-color: var(--bg-color);
+  background-color: var(--active-tab);
   border-top: 1px solid var(--primary-color);
 }
 
 .tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+}
+
+.tab-close {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+.tab-close:hover {
+  background-color: var(--hover-bg);
 }
 
 /* Monaco editor wrapper */
@@ -339,6 +905,7 @@
   background-color: var(--bg-lighter);
   border-bottom: 1px solid var(--border-color);
   user-select: none;
+  cursor: pointer;
 }
 
 .output-header h3 {
@@ -378,6 +945,8 @@
   font-size: 13px;
   color: var(--text-color);
   background-color: var(--bg-color);
+  display: flex;
+  flex-direction: column;
 }
 
 .output-content pre {
@@ -392,6 +961,7 @@
   height: 300px;
   background-color: white;
   overflow: hidden;
+  flex: 1;
 }
 
 /* Status bar */
@@ -418,7 +988,7 @@
   gap: 6px;
 }
 
-/* AI modal */
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -432,12 +1002,12 @@
   z-index: 1000;
 }
 
-.ai-modal {
+.modal {
   background-color: var(--bg-lighter);
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   width: 90%;
-  max-width: 600px;
+  max-width: 400px;
   color: var(--text-color);
   display: flex;
   flex-direction: column;
@@ -462,11 +1032,48 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 70vh;
-  overflow-y: auto;
 }
 
-.modal-content textarea {
+.modal-content label {
+  font-size: 13px;
+}
+
+.modal-content input {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+}
+
+.modal-hint {
+  font-size: 12px;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* AI modal */
+.ai-modal {
+  background-color: var(--bg-lighter);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 600px;
+  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-modal .modal-content textarea {
   background-color: var(--input-bg);
   border: 1px solid var(--border-color);
   border-radius: 2px;
@@ -488,14 +1095,6 @@
   overflow-y: auto;
 }
 
-.modal-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 /* Light theme */
 .light-theme {
   --primary-color: #0078d4;
@@ -513,11 +1112,20 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .activity-bar {
+    width: 40px;
+  }
+  
+  .activity-bar-item {
+    width: 40px;
+    height: 40px;
+  }
+
   .editor-sidebar {
     position: absolute;
     top: 40px;
     bottom: 0;
-    left: 0;
+    left: 40px;
     z-index: 10;
     height: calc(100% - 40px);
   }
@@ -526,3 +1134,4 @@
     display: none;
   }
 }
+

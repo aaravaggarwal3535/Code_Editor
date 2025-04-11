@@ -22,6 +22,23 @@ function App() {
   const aiModalRef = useRef(null)
   const previewRef = useRef(null)
 
+  // File Explorer state
+  const [files, setFiles] = useState([])
+  const [folders, setFolders] = useState([])
+  const [currentFile, setCurrentFile] = useState(null)
+  const [showCreateFileModal, setShowCreateFileModal] = useState(false)
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
+  const [newFileName, setNewFileName] = useState('')
+  const [newFolderName, setNewFolderName] = useState('')
+  const [activeSidebarItem, setActiveSidebarItem] = useState('explorer')
+  const createModalRef = useRef(null)
+  const createFolderModalRef = useRef(null)
+  const renameModalRef = useRef(null)
+  const [showRenameModal, setShowRenameModal] = useState(false)
+  const [itemToRename, setItemToRename] = useState(null)
+  const [newItemName, setNewItemName] = useState('')
+  const [expandedFolders, setExpandedFolders] = useState({})
+
   // Language configurations
   const starterCode = {
     javascript: '// Write your JavaScript code here\nconsole.log("Hello, world!");',
@@ -38,18 +55,61 @@ function App() {
     java: '☕',
     cpp: '⚙️',
     html: '🌐',
-    css: '🎨'
+    css: '🎨',
+    txt: '📄',
+    md: '📝',
+    json: '📊',
+    default: '📄'
   }
+
+  // Initialize files and folders
+  useEffect(() => {
+    // Sample initial file structure
+    setFiles([
+      { id: '1', name: 'script.js', type: 'javascript', content: starterCode.javascript, parent: null },
+      { id: '2', name: 'main.py', type: 'python', content: starterCode.python, parent: null },
+      { id: '3', name: 'styles.css', type: 'css', content: starterCode.css, parent: null },
+      { id: '4', name: 'index.html', type: 'html', content: starterCode.html, parent: null },
+      { id: '5', name: 'config.json', type: 'json', content: '{\n  "name": "My Project",\n  "version": "1.0.0"\n}', parent: 'folder1' },
+      { id: '6', name: 'README.md', type: 'md', content: '# My Project\n\nThis is a sample project.', parent: null },
+      { id: '7', name: 'utils.js', type: 'javascript', content: '// Utility functions\nfunction formatDate(date) {\n  return date.toLocaleDateString();\n}\n\nfunction formatTime(date) {\n  return date.toLocaleTimeString();\n}', parent: 'folder2' }
+    ])
+
+    setFolders([
+      { id: 'folder1', name: 'config', parent: null },
+      { id: 'folder2', name: 'utils', parent: null },
+      { id: 'folder3', name: 'assets', parent: null },
+      { id: 'folder4', name: 'scripts', parent: 'folder3' }
+    ])
+
+    setCurrentFile({ id: '1', name: 'script.js', type: 'javascript', content: starterCode.javascript, parent: null })
+    
+    // Set initial expanded state
+    setExpandedFolders({
+      'folder1': true,
+      'folder2': true,
+      'folder3': false
+    })
+  }, [])
 
   // Event handlers
   const handleCodeChange = (value) => {
     setCode(value || '')
+    if (currentFile) {
+      setFiles(prevFiles => 
+        prevFiles.map(file => 
+          file.id === currentFile.id ? {...file, content: value || ''} : file
+        )
+      )
+    }
   }
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang)
-    setCode(starterCode[lang] || code)
-    clearOutput()
+    if (!currentFile) {
+      setCode(starterCode[lang] || code)
+      clearOutput()
+    }
   }
 
   const handleThemeChange = (e) => {
@@ -62,6 +122,143 @@ function App() {
 
   const toggleOutputPanel = () => {
     setIsOutputExpanded(!isOutputExpanded)
+  }
+
+  // File operations
+  const openFile = (file) => {
+    setCurrentFile(file)
+    setLanguage(file.type)
+    setCode(file.content)
+    clearOutput()
+  }
+
+  const createNewFile = () => {
+    setShowCreateFileModal(true)
+  }
+
+  const handleCreateFile = () => {
+    if (!newFileName.trim()) return
+    
+    let fileType = 'txt'
+    const fileExt = newFileName.split('.').pop().toLowerCase()
+    
+    if (Object.keys(starterCode).includes(fileExt)) {
+      fileType = fileExt
+    } else if (fileExt === 'md' || fileExt === 'json' || fileExt === 'txt') {
+      fileType = fileExt
+    }
+    
+    const newFile = {
+      id: `file_${Date.now()}`,
+      name: newFileName,
+      type: fileType,
+      content: starterCode[fileType] || '',
+      parent: null
+    }
+    
+    setFiles(prevFiles => [...prevFiles, newFile])
+    setCurrentFile(newFile)
+    setLanguage(fileType)
+    setCode(newFile.content)
+    setShowCreateFileModal(false)
+    setNewFileName('')
+  }
+
+  const createNewFolder = () => {
+    setShowCreateFolderModal(true)
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
+    const newFolder = {
+      id: `folder_${Date.now()}`,
+      name: newFolderName,
+      parent: null
+    }
+    
+    setFolders(prevFolders => [...prevFolders, newFolder])
+    setShowCreateFolderModal(false)
+    setNewFolderName('')
+    
+    // Auto expand newly created folders
+    setExpandedFolders(prev => ({
+      ...prev,
+      [newFolder.id]: true
+    }))
+  }
+
+  const deleteItem = (item, itemType) => {
+    if (itemType === 'file') {
+      // If deleting the current file, clear the editor
+      if (currentFile && item.id === currentFile.id) {
+        setCurrentFile(null)
+        setCode('')
+      }
+      
+      setFiles(prevFiles => prevFiles.filter(file => file.id !== item.id))
+    } else {
+      // Delete folder and all its contents recursively
+      const folderToDelete = item.id
+      
+      // Delete all files in this folder
+      setFiles(prevFiles => prevFiles.filter(file => file.parent !== folderToDelete))
+      
+      // Delete all subfolders recursively
+      const deleteSubfolders = (parentId) => {
+        const subfolders = folders.filter(f => f.parent === parentId).map(f => f.id)
+        
+        if (subfolders.length > 0) {
+          subfolders.forEach(subfolderId => {
+            deleteSubfolders(subfolderId)
+          })
+        }
+        
+        setFolders(prevFolders => prevFolders.filter(folder => folder.parent !== parentId && folder.id !== parentId))
+      }
+      
+      deleteSubfolders(folderToDelete)
+    }
+  }
+
+  const renameItem = (item, itemType) => {
+    setItemToRename({ item, type: itemType })
+    setNewItemName(item.name)
+    setShowRenameModal(true)
+  }
+
+  const handleRenameItem = () => {
+    if (!newItemName.trim() || !itemToRename) return
+    
+    if (itemToRename.type === 'file') {
+      setFiles(prevFiles => 
+        prevFiles.map(file => 
+          file.id === itemToRename.item.id ? { ...file, name: newItemName } : file
+        )
+      )
+      
+      // Update current file if it's the one being renamed
+      if (currentFile && currentFile.id === itemToRename.item.id) {
+        setCurrentFile({ ...currentFile, name: newItemName })
+      }
+    } else {
+      setFolders(prevFolders => 
+        prevFolders.map(folder => 
+          folder.id === itemToRename.item.id ? { ...folder, name: newItemName } : folder
+        )
+      )
+    }
+    
+    setShowRenameModal(false)
+    setItemToRename(null)
+    setNewItemName('')
+  }
+
+  const toggleFolder = (folderId) => {
+    setExpandedFolders(prev => ({
+      ...prev,
+      [folderId]: !prev[folderId]
+    }))
   }
 
   // AI Assistant functions
@@ -97,6 +294,13 @@ function App() {
       
       const data = await response.json()
       setCode(data.updated_code)
+      if (currentFile) {
+        setFiles(prevFiles => 
+          prevFiles.map(file => 
+            file.id === currentFile.id ? {...file, content: data.updated_code} : file
+          )
+        )
+      }
       setAIExplanation(data.explanation)
     } catch (error) {
       console.error('AI processing error:', error)
@@ -106,22 +310,35 @@ function App() {
     }
   }
 
-  // Click outside handler for AI modal
+  // Click outside handler for modals
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (aiModalRef.current && !aiModalRef.current.contains(event.target)) {
+      if (aiModalRef.current && !aiModalRef.current.contains(event.target) && showAIModal) {
         closeAIModal()
+      }
+      
+      if (createModalRef.current && !createModalRef.current.contains(event.target) && showCreateFileModal) {
+        setShowCreateFileModal(false)
+        setNewFileName('')
+      }
+      
+      if (createFolderModalRef.current && !createFolderModalRef.current.contains(event.target) && showCreateFolderModal) {
+        setShowCreateFolderModal(false)
+        setNewFolderName('')
+      }
+      
+      if (renameModalRef.current && !renameModalRef.current.contains(event.target) && showRenameModal) {
+        setShowRenameModal(false)
+        setItemToRename(null)
+        setNewItemName('')
       }
     }
     
-    if (showAIModal) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    
+    document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showAIModal])
+  }, [showAIModal, showCreateFileModal, showCreateFolderModal, showRenameModal])
 
   // Code execution
   const runCode = async () => {
@@ -224,7 +441,7 @@ function App() {
             <h1>CSS Preview</h1>
             <p>This is a paragraph to preview your CSS styling.</p>
             <button>Button Element</button>
-            <div className="box" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;">
+            <div class="box" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;">
               A div with class "box"
             </div>
             <ul style="margin-top: 20px;">
@@ -261,6 +478,10 @@ function App() {
 
   // Get filename based on language
   const getFileName = () => {
+    if (currentFile) {
+      return currentFile.name
+    }
+    
     switch (language) {
       case 'javascript': return 'script.js'
       case 'python': return 'main.py'
@@ -269,6 +490,235 @@ function App() {
       case 'html': return 'index.html'
       case 'css': return 'styles.css'
       default: return 'file.txt'
+    }
+  }
+
+  // Get icon for file type
+  const getFileIcon = (fileName) => {
+    const extension = fileName.split('.').pop().toLowerCase()
+    return languageIcons[extension] || languageIcons.default
+  }
+
+  // Get active sidebar view
+  const getSidebarView = () => {
+    switch (activeSidebarItem) {
+      case 'explorer':
+        return (
+          <>
+            <div className="sidebar-actions">
+              <button 
+                className="sidebar-action-button" 
+                onClick={createNewFile}
+                title="New File"
+              >
+                📄+
+              </button>
+              <button 
+                className="sidebar-action-button" 
+                onClick={createNewFolder}
+                title="New Folder"
+              >
+                📁+
+              </button>
+              <button 
+                className="sidebar-action-button" 
+                onClick={() => {
+                  // Refresh file list (for a real app this would reload from storage)
+                  const timestamp = Date.now()
+                  setFiles(prev => [...prev])
+                  setFolders(prev => [...prev])
+                }}
+                title="Refresh Explorer"
+              >
+                🔄
+              </button>
+            </div>
+            <div className="file-explorer">
+              {/* Root Files */}
+              {files.filter(file => file.parent === null).map(file => (
+                <div 
+                  key={file.id}
+                  className={`file-item ${currentFile && currentFile.id === file.id ? 'active' : ''}`}
+                  onClick={() => openFile(file)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    // Show context menu for right-click
+                    // In a production app, this would open a proper context menu
+                    const action = window.confirm(`Choose an action for ${file.name}:\nOK = Rename, Cancel = Delete`)
+                    if (action) {
+                      renameItem(file, 'file')
+                    } else {
+                      if (window.confirm(`Are you sure you want to delete ${file.name}?`)) {
+                        deleteItem(file, 'file')
+                      }
+                    }
+                  }}
+                >
+                  <span className="file-icon">{getFileIcon(file.name)}</span>
+                  <span className="file-name">{file.name}</span>
+                </div>
+              ))}
+              
+              {/* Root Folders */}
+              {folders.filter(folder => folder.parent === null).map(folder => (
+                <div key={folder.id} className="folder-container">
+                  <div 
+                    className="folder-item"
+                    onClick={() => toggleFolder(folder.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      // Show context menu for right-click
+                      const action = window.confirm(`Choose an action for ${folder.name}:\nOK = Rename, Cancel = Delete`)
+                      if (action) {
+                        renameItem(folder, 'folder')
+                      } else {
+                        if (window.confirm(`Are you sure you want to delete ${folder.name} and all its contents?`)) {
+                          deleteItem(folder, 'folder')
+                        }
+                      }
+                    }}
+                  >
+                    <span className="folder-icon">
+                      {expandedFolders[folder.id] ? '📂' : '📁'}
+                    </span>
+                    <span className="folder-name">{folder.name}</span>
+                  </div>
+                  
+                  {/* Folder contents */}
+                  {expandedFolders[folder.id] && (
+                    <div className="folder-contents">
+                      {/* Subfolders */}
+                      {folders.filter(subFolder => subFolder.parent === folder.id).map(subFolder => (
+                        <div key={subFolder.id} className="folder-container">
+                          <div 
+                            className="folder-item"
+                            onClick={() => toggleFolder(subFolder.id)}
+                            onContextMenu={(e) => {
+                              e.preventDefault()
+                              // Show context menu for right-click
+                              const action = window.confirm(`Choose an action for ${subFolder.name}:\nOK = Rename, Cancel = Delete`)
+                              if (action) {
+                                renameItem(subFolder, 'folder')
+                              } else {
+                                if (window.confirm(`Are you sure you want to delete ${subFolder.name} and all its contents?`)) {
+                                  deleteItem(subFolder, 'folder')
+                                }
+                              }
+                            }}
+                          >
+                            <span className="folder-icon">
+                              {expandedFolders[subFolder.id] ? '📂' : '📁'}
+                            </span>
+                            <span className="folder-name">{subFolder.name}</span>
+                          </div>
+                          
+                          {/* Subfolder contents */}
+                          {expandedFolders[subFolder.id] && (
+                            <div className="folder-contents">
+                              {files.filter(file => file.parent === subFolder.id).map(file => (
+                                <div 
+                                  key={file.id}
+                                  className={`file-item ${currentFile && currentFile.id === file.id ? 'active' : ''}`}
+                                  onClick={() => openFile(file)}
+                                  onContextMenu={(e) => {
+                                    e.preventDefault()
+                                    const action = window.confirm(`Choose an action for ${file.name}:\nOK = Rename, Cancel = Delete`)
+                                    if (action) {
+                                      renameItem(file, 'file')
+                                    } else {
+                                      if (window.confirm(`Are you sure you want to delete ${file.name}?`)) {
+                                        deleteItem(file, 'file')
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <span className="file-icon">{getFileIcon(file.name)}</span>
+                                  <span className="file-name">{file.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* Files in folder */}
+                      {files.filter(file => file.parent === folder.id).map(file => (
+                        <div 
+                          key={file.id}
+                          className={`file-item ${currentFile && currentFile.id === file.id ? 'active' : ''}`}
+                          onClick={() => openFile(file)}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            const action = window.confirm(`Choose an action for ${file.name}:\nOK = Rename, Cancel = Delete`)
+                            if (action) {
+                              renameItem(file, 'file')
+                            } else {
+                              if (window.confirm(`Are you sure you want to delete ${file.name}?`)) {
+                                deleteItem(file, 'file')
+                              }
+                            }
+                          }}
+                        >
+                          <span className="file-icon">{getFileIcon(file.name)}</span>
+                          <span className="file-name">{file.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      
+      case 'search':
+        return (
+          <div className="search-view">
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Search in workspace..." 
+            />
+            <div className="search-results">
+              <div className="search-placeholder">Enter a search term</div>
+            </div>
+          </div>
+        );
+        
+      case 'git':
+        return (
+          <div className="git-view">
+            <div className="git-placeholder">
+              <p>Git functionality would be here</p>
+              <button className="sidebar-button">Initialize Repository</button>
+            </div>
+          </div>
+        );
+        
+      case 'debug':
+        return (
+          <div className="debug-view">
+            <div className="debug-placeholder">
+              <p>Debug controls</p>
+              <button className="sidebar-button" onClick={runCode} disabled={isLoading}>
+                {isLoading ? '⏳ Running...' : '▶ Run Code'}
+              </button>
+            </div>
+          </div>
+        );
+        
+      case 'extensions':
+        return (
+          <div className="extensions-view">
+            <div className="extensions-placeholder">
+              <p>Extensions would be listed here</p>
+              <button className="sidebar-button">Install Extensions</button>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
     }
   }
 
@@ -290,62 +740,77 @@ function App() {
 
       {/* Main content */}
       <div className="editor-main">
+        {/* Activity Bar */}
+        <div className="activity-bar">
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'explorer' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('explorer')}
+            title="Explorer"
+          >
+            📁
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('search')}
+            title="Search"
+          >
+            🔍
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'git' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('git')}
+            title="Source Control"
+          >
+            📊
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'debug' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('debug')}
+            title="Run and Debug"
+          >
+            🐞
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'extensions' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('extensions')}
+            title="Extensions"
+          >
+            🧩
+          </div>
+        </div>
+
         {/* Sidebar */}
         <aside className={`editor-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
           <div className="sidebar-header">
-            <span>Explorer</span>
+            <span>{activeSidebarItem.toUpperCase()}</span>
             <button className="sidebar-toggle" onClick={toggleSidebar}>×</button>
           </div>
           
           <div className="sidebar-content">
-            <div className="sidebar-section">
-              <div className="section-title">Languages</div>
-              <div className="language-selector">
-                {Object.keys(starterCode).map((lang) => (
-                  <div 
-                    key={lang}
-                    className={`language-item ${language === lang ? 'active' : ''}`}
-                    onClick={() => handleLanguageChange(lang)}
-                  >
-                    <span className="language-icon">{languageIcons[lang]}</span>
-                    <span>{lang.charAt(0).toUpperCase() + lang.slice(1)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="sidebar-section">
-              <div className="section-title">Settings</div>
-              <div className="theme-selector">
-                <label htmlFor="theme-select">Editor Theme</label>
-                <select 
-                  id="theme-select"
-                  value={theme} 
-                  onChange={handleThemeChange}
-                >
-                  <option value="vs-dark">Dark</option>
-                  <option value="light">Light</option>
-                </select>
-              </div>
-            </div>
-
-            <button 
-              onClick={runCode} 
-              disabled={isLoading} 
-              className="run-button-sidebar"
-            >
-              {isLoading ? '⏳ Running...' : '▶ Run Code'}
-            </button>
+            {getSidebarView()}
           </div>
         </aside>
 
         {/* Editor content */}
         <main className="editor-content">
           <div className="editor-tabs">
-            <div className="editor-tab active">
-              <span className="language-icon">{languageIcons[language]}</span>
-              <span className="tab-name">{getFileName()}</span>
-            </div>
+            {currentFile ? (
+              <div className="editor-tab active">
+                <span className="language-icon">{getFileIcon(currentFile.name)}</span>
+                <span className="tab-name">{currentFile.name}</span>
+                <span className="tab-close" onClick={() => {
+                  // Close tab but don't delete the file
+                  setCurrentFile(null)
+                  setCode('')
+                  clearOutput()
+                }}>×</span>
+              </div>
+            ) : (
+              <div className="editor-tab active">
+                <span className="language-icon">{languageIcons[language]}</span>
+                <span className="tab-name">{getFileName()}</span>
+              </div>
+            )}
           </div>
 
           <div className="monaco-editor-wrapper">
@@ -432,7 +897,8 @@ function App() {
       <footer className="status-bar">
         <div className="status-left">
           <div className="status-item">
-            {languageIcons[language]} {language.charAt(0).toUpperCase() + language.slice(1)}
+            {currentFile ? getFileIcon(currentFile.name) : languageIcons[language]} 
+            {currentFile ? currentFile.name : language.charAt(0).toUpperCase() + language.slice(1)}
           </div>
         </div>
         <div className="status-right">
@@ -441,6 +907,127 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Create File Modal */}
+      {showCreateFileModal && (
+        <div className="modal-overlay">
+          <div className="modal" ref={createModalRef}>
+            <div className="modal-header">
+              <h2>Create New File</h2>
+            </div>
+            <div className="modal-content">
+              <label htmlFor="new-file-name">File Name:</label>
+              <input
+                id="new-file-name"
+                type="text"
+                value={newFileName}
+                onChange={(e) => setNewFileName(e.target.value)}
+                placeholder="e.g. file.js, index.html"
+                autoFocus
+              />
+              <p className="modal-hint">Include file extension (.js, .py, .html, etc.)</p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={() => {
+                  setShowCreateFileModal(false)
+                  setNewFileName('')
+                }}
+                className="toolbar-button"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCreateFile}
+                className="toolbar-button primary"
+                disabled={!newFileName.trim()}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Folder Modal */}
+      {showCreateFolderModal && (
+        <div className="modal-overlay">
+          <div className="modal" ref={createFolderModalRef}>
+            <div className="modal-header">
+              <h2>Create New Folder</h2>
+            </div>
+            <div className="modal-content">
+              <label htmlFor="new-folder-name">Folder Name:</label>
+              <input
+                id="new-folder-name"
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="e.g. src, assets, utils"
+                autoFocus
+              />
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={() => {
+                  setShowCreateFolderModal(false)
+                  setNewFolderName('')
+                }}
+                className="toolbar-button"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCreateFolder}
+                className="toolbar-button primary"
+                disabled={!newFolderName.trim()}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {showRenameModal && itemToRename && (
+        <div className="modal-overlay">
+          <div className="modal" ref={renameModalRef}>
+            <div className="modal-header">
+              <h2>Rename {itemToRename.type === 'file' ? 'File' : 'Folder'}</h2>
+            </div>
+            <div className="modal-content">
+              <label htmlFor="new-item-name">New Name:</label>
+              <input
+                id="new-item-name"
+                type="text"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={() => {
+                  setShowRenameModal(false)
+                  setItemToRename(null)
+                  setNewItemName('')
+                }}
+                className="toolbar-button"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleRenameItem}
+                className="toolbar-button primary"
+                disabled={!newItemName.trim()}
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Modal */}
       {showAIModal && (

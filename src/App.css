@@ -50,6 +50,7 @@
   justify-content: space-between;
   padding: 0 16px;
   border-bottom: 1px solid var(--border-color);
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -764,7 +765,10 @@
   display: flex;
   border-bottom: 1px solid var(--border-color);
   overflow-x: auto;
-  scrollbar-width: thin;
+  /* Firefox */
+  /* scrollbar-width: thin; */
+  /* For older browsers that don't support scrollbar-width */
+  -ms-overflow-style: none;  /* IE and Edge */
 }
 
 .editor-tabs::-webkit-scrollbar {
@@ -773,6 +777,10 @@
 
 .editor-tabs::-webkit-scrollbar-thumb {
   background-color: var(--border-color);
+}
+
+.editor-tabs::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .editor-tab {
@@ -789,6 +797,7 @@
   border-right: 1px solid var(--border-color);
   cursor: pointer;
   white-space: nowrap;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -914,7 +923,7 @@
   padding: 0 16px;
   background-color: var(--bg-lighter);
   border-bottom: 1px solid var(--border-color);
-  user-select: none;
+
   cursor: pointer;
 }
 

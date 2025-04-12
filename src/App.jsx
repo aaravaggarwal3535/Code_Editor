@@ -1,6 +1,43 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import './App.css'
+
+// Debounce utility function
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
+
+// Toast notification component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [onClose]);
+  
+  return (
+    <div className={`toast ${type}`}>
+      <span>{message}</span>
+      <button className="toast-close" onClick={onClose}>×</button>
+    </div>
+  );
+};
 
 function App() {
   // Core state
@@ -13,6 +50,8 @@ function App() {
   // UI state
   const [isSidebarOpen, setSidebarOpen] = useState(true)
   const [isOutputExpanded, setIsOutputExpanded] = useState(false)
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
+  const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   
   // AI Assistant state
   const [showAIModal, setShowAIModal] = useState(false)
@@ -40,6 +79,19 @@ function App() {
   const [itemToRename, setItemToRename] = useState(null)
   const [newItemName, setNewItemName] = useState('')
   const [expandedFolders, setExpandedFolders] = useState({})
+
+  // Toast notifications
+  const [toasts, setToasts] = useState([])
+  
+  const showToast = (message, type = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    return id;
+  };
+  
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   // Language configurations
   const starterCode = {
@@ -93,6 +145,177 @@ function App() {
       'folder3': false
     })
   }, [])
+
+  // Use debounce for auto-saving and live preview
+  const debouncedCode = useDebounce(code, 1000);
+  
+  // Auto-save functionality
+  useEffect(() => {
+    if (currentFile && debouncedCode && autoSaveEnabled) {
+      // Auto-save to files state
+      setFiles(prevFiles => 
+        prevFiles.map(file => 
+          file.id === currentFile.id ? {...file, content: debouncedCode} : file
+        )
+      );
+      
+      // Show auto-save toast notification
+      showToast(`Auto-saved: ${currentFile.name}`, 'success');
+      
+      // In a real app, this would save to backend/localStorage
+      console.log(`Auto-saved: ${currentFile.name}`);
+    }
+  }, [debouncedCode, currentFile, autoSaveEnabled]);
+  
+  // Live preview for HTML and CSS
+  useEffect(() => {
+    if (!livePreviewEnabled) return;
+    
+    if (language === 'html' && debouncedCode) {
+      renderHTMLPreview(debouncedCode);
+      if (!isOutputExpanded) {
+        setIsOutputExpanded(true);
+      }
+    } else if (language === 'css' && debouncedCode) {
+      renderCSSPreview(debouncedCode);
+      if (!isOutputExpanded) {
+        setIsOutputExpanded(true);
+      }
+    }
+  }, [debouncedCode, language, livePreviewEnabled]);
+
+  // Persistent settings in local storage
+  useEffect(() => {
+    // Load settings from local storage on initial render
+    const loadSettings = () => {
+      try {
+        const savedTheme = localStorage.getItem('editor-theme');
+        const savedSidebarState = localStorage.getItem('sidebar-open');
+        const savedAutoSave = localStorage.getItem('auto-save');
+        const savedLivePreview = localStorage.getItem('live-preview');
+        
+        if (savedTheme) setTheme(savedTheme);
+        if (savedSidebarState !== null) setSidebarOpen(savedSidebarState === 'true');
+        if (savedAutoSave !== null) setAutoSaveEnabled(savedAutoSave === 'true');
+        if (savedLivePreview !== null) setLivePreviewEnabled(savedLivePreview === 'true');
+      } catch (error) {
+        console.error('Failed to load settings from local storage:', error);
+      }
+    };
+    
+    loadSettings();
+  }, []);
+  
+  // Save settings to local storage when they change
+  useEffect(() => {
+    localStorage.setItem('editor-theme', theme);
+  }, [theme]);
+  
+  useEffect(() => {
+    localStorage.setItem('sidebar-open', isSidebarOpen.toString());
+  }, [isSidebarOpen]);
+  
+  useEffect(() => {
+    localStorage.setItem('auto-save', autoSaveEnabled.toString());
+  }, [autoSaveEnabled]);
+  
+  useEffect(() => {
+    localStorage.setItem('live-preview', livePreviewEnabled.toString());
+  }, [livePreviewEnabled]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl/Cmd + S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (currentFile) {
+          setFiles(prevFiles => 
+            prevFiles.map(file => 
+              file.id === currentFile.id ? {...file, content: code} : file
+            )
+          );
+          showToast(`Saved: ${currentFile.name}`, 'success');
+        }
+      }
+
+      // Ctrl/Cmd + Enter to run code
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isLoading) {
+          runCode();
+        }
+      }
+
+      // Ctrl/Cmd + B to toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+      
+      // Ctrl/Cmd + P to open file finder
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        setActiveSidebarItem('search');
+        if (!isSidebarOpen) {
+          setSidebarOpen(true);
+        }
+      }
+      
+      // Esc to close modals
+      if (e.key === 'Escape') {
+        if (showAIModal) {
+          closeAIModal();
+        } else if (showCreateFileModal) {
+          setShowCreateFileModal(false);
+          setNewFileName('');
+        } else if (showCreateFolderModal) {
+          setShowCreateFolderModal(false);
+          setNewFolderName('');
+        } else if (showRenameModal) {
+          setShowRenameModal(false);
+          setItemToRename(null);
+          setNewItemName('');
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    code, 
+    currentFile, 
+    isLoading, 
+    showAIModal, 
+    showCreateFileModal, 
+    showCreateFolderModal, 
+    showRenameModal, 
+    isSidebarOpen
+  ]);
+
+// Add state for shortcuts modal
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
+  // Keyboard shortcuts list
+  const keyboardShortcuts = [
+    { key: 'Ctrl+S', description: 'Save current file' },
+    { key: 'Ctrl+Enter', description: 'Run code' },
+    { key: 'Ctrl+B', description: 'Toggle sidebar' },
+    { key: 'Ctrl+P', description: 'Search files' },
+    { key: 'Ctrl+F', description: 'Find in file' },
+    { key: 'Ctrl+Shift+F', description: 'Find in all files' },
+    { key: 'Alt+Up/Down', description: 'Move line up/down' },
+    { key: 'Ctrl+/', description: 'Toggle comment' },
+    { key: 'Ctrl+Space', description: 'Trigger suggestions' },
+    { key: 'F1', description: 'Show keyboard shortcuts' }
+  ];
+
+  // Toggle shortcuts modal
+  const toggleShortcutsModal = () => {
+    setShowShortcutsModal(!showShortcutsModal);
+  };
 
   // Event handlers
   const handleCodeChange = (value) => {
@@ -551,6 +774,120 @@ function App() {
     return languageIcons[extension] || languageIcons.default
   }
 
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Debounced search
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // Perform search when query changes
+  useEffect(() => {
+    if (!debouncedSearchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    // Search in files content
+    const query = debouncedSearchQuery.toLowerCase();
+    const results = [];
+    
+    files.forEach(file => {
+      const fileContent = file.content.toLowerCase();
+      const nameMatch = file.name.toLowerCase().includes(query);
+      
+      // Check if content contains the search query
+      if (nameMatch || fileContent.includes(query)) {
+        const contentMatches = [];
+        
+        // Find content matches
+        if (fileContent.includes(query)) {
+          const lines = file.content.split('\n');
+          lines.forEach((line, index) => {
+            if (line.toLowerCase().includes(query)) {
+              contentMatches.push({
+                lineNumber: index + 1,
+                line: line.trim(),
+                lineContent: line
+              });
+            }
+          });
+        }
+        
+        results.push({
+          file,
+          nameMatch,
+          contentMatches
+        });
+      }
+    });
+    
+    setSearchResults(results);
+    setIsSearching(false);
+  }, [debouncedSearchQuery, files]);
+
+  // Drag and drop functionality
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragTarget, setDragTarget] = useState(null);
+  
+  const handleDragStart = (e, item, type) => {
+    setDraggedItem({ item, type });
+  };
+  
+  const handleDragOver = (e, target) => {
+    e.preventDefault();
+    if (target && target.id !== draggedItem?.item.id) {
+      setDragTarget(target);
+    }
+  };
+  
+  const handleDrop = (e, targetFolder) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+    
+    const { item, type } = draggedItem;
+    
+    // Can't drop a folder inside itself or its descendants
+    if (type === 'folder') {
+      // Check if targetFolder is a descendant of the dragged folder
+      const isDescendant = (parent, child) => {
+        if (child.id === parent.id) return true;
+        const subfolders = folders.filter(f => f.parent === parent.id);
+        return subfolders.some(f => isDescendant(f, child));
+      };
+      
+      if (targetFolder && isDescendant(item, targetFolder)) {
+        showToast('Cannot move a folder into its descendant', 'error');
+        setDraggedItem(null);
+        setDragTarget(null);
+        return;
+      }
+    }
+    
+    // Update the parent of the dragged item
+    if (type === 'file') {
+      setFiles(prevFiles =>
+        prevFiles.map(file =>
+          file.id === item.id ? { ...file, parent: targetFolder ? targetFolder.id : null } : file
+        )
+      );
+      showToast(`Moved ${item.name} to ${targetFolder ? targetFolder.name : 'root'}`, 'success');
+    } else {
+      setFolders(prevFolders =>
+        prevFolders.map(folder =>
+          folder.id === item.id ? { ...folder, parent: targetFolder ? targetFolder.id : null } : folder
+        )
+      );
+      showToast(`Moved folder ${item.name} to ${targetFolder ? targetFolder.name : 'root'}`, 'success');
+    }
+    
+    setDraggedItem(null);
+    setDragTarget(null);
+  };
+
   // Get active sidebar view
   const getSidebarView = () => {
     switch (activeSidebarItem) {
@@ -605,6 +942,10 @@ function App() {
                       }
                     }
                   }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, file, 'file')}
+                  onDragOver={(e) => handleDragOver(e, file)}
+                  onDrop={(e) => handleDrop(e, null)}
                 >
                   <span className="file-icon">{getFileIcon(file.name)}</span>
                   <span className="file-name">{file.name}</span>
@@ -629,6 +970,10 @@ function App() {
                         }
                       }
                     }}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, folder, 'folder')}
+                    onDragOver={(e) => handleDragOver(e, folder)}
+                    onDrop={(e) => handleDrop(e, null)}
                   >
                     <span className="folder-icon">
                       {expandedFolders[folder.id] ? '📂' : '📁'}
@@ -657,6 +1002,10 @@ function App() {
                                 }
                               }
                             }}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, subFolder, 'folder')}
+                            onDragOver={(e) => handleDragOver(e, subFolder)}
+                            onDrop={(e) => handleDrop(e, folder)}
                           >
                             <span className="folder-icon">
                               {expandedFolders[subFolder.id] ? '📂' : '📁'}
@@ -683,6 +1032,10 @@ function App() {
                                       }
                                     }
                                   }}
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(e, file, 'file')}
+                                  onDragOver={(e) => handleDragOver(e, file)}
+                                  onDrop={(e) => handleDrop(e, subFolder)}
                                 >
                                   <span className="file-icon">{getFileIcon(file.name)}</span>
                                   <span className="file-name">{file.name}</span>
@@ -710,6 +1063,10 @@ function App() {
                               }
                             }
                           }}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, file, 'file')}
+                          onDragOver={(e) => handleDragOver(e, file)}
+                          onDrop={(e) => handleDrop(e, folder)}
                         >
                           <span className="file-icon">{getFileIcon(file.name)}</span>
                           <span className="file-name">{file.name}</span>
@@ -730,9 +1087,34 @@ function App() {
               type="text" 
               className="search-input" 
               placeholder="Search in workspace..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <div className="search-results">
-              <div className="search-placeholder">Enter a search term</div>
+              {isSearching ? (
+                <div className="search-placeholder">Searching...</div>
+              ) : searchResults.length === 0 ? (
+                <div className="search-placeholder">No results found</div>
+              ) : (
+                searchResults.map((result, index) => (
+                  <div key={index} className="search-result-item">
+                    <div className="search-result-file" onClick={() => openFile(result.file)}>
+                      <span className="file-icon">{getFileIcon(result.file.name)}</span>
+                      <span className="file-name">{result.file.name}</span>
+                    </div>
+                    {result.contentMatches.length > 0 && (
+                      <div className="search-result-content">
+                        {result.contentMatches.map((match, idx) => (
+                          <div key={idx} className="search-result-line">
+                            <span className="line-number">{match.lineNumber}</span>
+                            <span className="line-content">{match.lineContent}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         );
@@ -881,6 +1263,16 @@ function App() {
                 wordWrap: 'on',
                 lineNumbers: 'on',
                 renderLineHighlight: 'all',
+                folding: true,
+                foldingStrategy: 'indentation',
+                formatOnPaste: true,
+                formatOnType: true,
+                suggestOnTriggerCharacters: true,
+                acceptSuggestionOnEnter: 'on',
+                quickSuggestions: true,
+                quickSuggestionsDelay: 10,
+                parameterHints: { enabled: true },
+                renderWhitespace: 'selection',
                 scrollbar: {
                   vertical: 'auto',
                   horizontal: 'auto'
@@ -906,7 +1298,41 @@ function App() {
             >
               🤖 AI Assist
             </button>
+            
             <div className="toolbar-spacer"></div>
+            
+            {/* Auto-save toggle */}
+            <div className="feature-indicator">
+              <div className="feature-toggle" onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}>
+                <label className="toggle-switch">
+                  <input 
+                    type="checkbox" 
+                    checked={autoSaveEnabled} 
+                    onChange={() => setAutoSaveEnabled(!autoSaveEnabled)} 
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+                <span>Auto-save</span>
+              </div>
+            </div>
+            
+            {/* Live preview toggle for HTML/CSS */}
+            {(language === 'html' || language === 'css') && (
+              <div className="feature-indicator">
+                <div className="feature-toggle" onClick={() => setLivePreviewEnabled(!livePreviewEnabled)}>
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={livePreviewEnabled} 
+                      onChange={() => setLivePreviewEnabled(!livePreviewEnabled)} 
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <span>Live Preview</span>
+                </div>
+              </div>
+            )}
+            
             <button 
               onClick={clearOutput} 
               className="toolbar-button"
@@ -954,6 +1380,10 @@ function App() {
           </div>
         </div>
         <div className="status-right">
+          <div className="status-item help-button" onClick={toggleShortcutsModal} title="Show keyboard shortcuts">
+            <span>⌨️</span>
+            <span>Shortcuts</span>
+          </div>
           <div className="status-item">
             {theme === 'vs-dark' ? '🌙 Dark' : '☀️ Light'}
           </div>
@@ -1166,6 +1596,55 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcutsModal && (
+        <div className="modal-overlay">
+          <div className="modal shortcuts-modal">
+            <div className="modal-header">
+              <h2>⌨️ Keyboard Shortcuts</h2>
+            </div>
+            <div className="modal-content shortcuts-content">
+              <table className="shortcuts-table">
+                <thead>
+                  <tr>
+                    <th>Shortcut</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keyboardShortcuts.map((shortcut, index) => (
+                    <tr key={index}>
+                      <td className="shortcut-key">{shortcut.key}</td>
+                      <td>{shortcut.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={toggleShortcutsModal}
+                className="toolbar-button primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notifications */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <Toast 
+            key={toast.id} 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => removeToast(toast.id)} 
+          />
+        ))}
+      </div>
     </div>
   )
 }

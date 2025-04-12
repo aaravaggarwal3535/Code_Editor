@@ -150,11 +150,12 @@ app.post('/execute', async (req, res) => {
 
 app.post('/ai/improve', async (req, res) => {
   try {
-    const { code, language, prompt } = req.body;
+    const { code, language, prompt, session_id } = req.body;
     
     console.log(`Processing AI request for language: ${language}`);
     console.log(`Prompt: ${prompt}`);
     console.log(`Code length: ${code.length} characters`);
+    console.log(`Session ID: ${session_id || 'new session'}`);
     
     // Use the port where your AI service is actually running
     const aiPort = process.env.AI_PORT || 8001;
@@ -172,12 +173,13 @@ app.post('/ai/improve', async (req, res) => {
       });
     }
     
-    // Try the direct-improve endpoint with IPv4 address
+    // Send to the AI service endpoint with session_id
     console.log('Sending request to AI service...');
-    const response = await axios.post(`http://127.0.0.1:${aiPort}/ai/direct-improve`, {
+    const response = await axios.post(`http://127.0.0.1:${aiPort}/ai/improve`, {
       code,
       language,
-      prompt
+      prompt,
+      session_id
     });
     
     console.log('AI service response received');

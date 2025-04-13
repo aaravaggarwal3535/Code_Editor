@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import './App.css'
+import { getFileIconClass, getFolderIconClass } from './utils/file-icons'
 
 // Debounce utility function
 const useDebounce = (value, delay) => {
@@ -770,8 +771,8 @@ function App() {
 
   // Get icon for file type
   const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase()
-    return languageIcons[extension] || languageIcons.default
+    const iconClass = getFileIconClass(fileName);
+    return <i className={`icon ${iconClass}`}></i>;
   }
 
   // Search functionality
@@ -976,7 +977,7 @@ function App() {
                     onDrop={(e) => handleDrop(e, null)}
                   >
                     <span className="folder-icon">
-                      {expandedFolders[folder.id] ? '📂' : '📁'}
+                      <i className={`icon ${getFolderIconClass(expandedFolders[folder.id])}`}></i>
                     </span>
                     <span className="folder-name">{folder.name}</span>
                   </div>
@@ -1008,7 +1009,7 @@ function App() {
                             onDrop={(e) => handleDrop(e, folder)}
                           >
                             <span className="folder-icon">
-                              {expandedFolders[subFolder.id] ? '📂' : '📁'}
+                              <i className={`icon ${getFolderIconClass(expandedFolders[subFolder.id])}`}></i>
                             </span>
                             <span className="folder-name">{subFolder.name}</span>
                           </div>
@@ -1241,7 +1242,7 @@ function App() {
               </div>
             ) : (
               <div className="editor-tab active">
-                <span className="language-icon">{languageIcons[language]}</span>
+                <span className="language-icon">{getFileIcon(getFileName())}</span>
                 <span className="tab-name">{getFileName()}</span>
               </div>
             )}
@@ -1375,7 +1376,7 @@ function App() {
       <footer className="status-bar">
         <div className="status-left">
           <div className="status-item">
-            {currentFile ? getFileIcon(currentFile.name) : languageIcons[language]} 
+            {currentFile ? getFileIcon(currentFile.name) : getFileIcon(getFileName())} 
             {currentFile ? currentFile.name : language.charAt(0).toUpperCase() + language.slice(1)}
           </div>
         </div>

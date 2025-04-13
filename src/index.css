@@ -1,4 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
 :root {
+  --color-primary: #3b82f6;
+  --color-secondary: #ec4899;
+  --color-dark: #1e293b;
+  --color-light: #f1f5f9;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -15,6 +24,10 @@
 
 body {
   margin: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
   display: flex;
   min-width: 320px;
   min-height: 100vh;
@@ -114,6 +127,20 @@ button:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded font-medium transition-colors duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark;
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-dark-lighter;
+  }
+}
+
 /* Let the VS Code container take full width/height */
 .vs-code-container {
   width: 100vw;
@@ -134,10 +161,9 @@ button:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 5px;
+  @apply bg-gray-400 dark:bg-gray-600 rounded;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  @apply bg-gray-500 dark:bg-gray-500;
 }

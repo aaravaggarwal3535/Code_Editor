@@ -109,6 +109,52 @@ button:hover {
     default: '📄'
   }
 
+  // Get file type from file extension
+  const getFileType = (fileName) => {
+    const extension = fileName.split('.').pop().toLowerCase();
+    
+    // Map common extensions to language types
+    const extensionMap = {
+      // JavaScript and related
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      
+      // Web
+      'html': 'html',
+      'htm': 'html',
+      'css': 'css',
+      'scss': 'scss',
+      'less': 'less',
+      
+      // C-family
+      'c': 'c',
+      'cpp': 'cpp',
+      'h': 'c',
+      'hpp': 'cpp',
+      
+      // Python
+      'py': 'python',
+      'pyw': 'python',
+      
+      // Java
+      'java': 'java',
+      
+      // Other common types
+      'json': 'json',
+      'md': 'markdown',
+      'txt': 'plaintext',
+      'xml': 'xml',
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      'sh': 'shell',
+      'bat': 'bat'
+    };
+    
+    return extensionMap[extension] || 'plaintext';
+  };
+
   // Initialize files and folders
   useEffect(() => {
     // Sample initial file structure with linked HTML and CSS
@@ -269,6 +315,7 @@ button:hover {
   // File operations
   const openFile = (file) => {
     setCurrentFile(file)
+    // Use the file type from the file object to set the editor language
     setLanguage(file.type)
     setCode(file.content)
     clearOutput()
@@ -281,20 +328,23 @@ button:hover {
   const handleCreateFile = () => {
     if (!newFileName.trim()) return
     
-    let fileType = 'txt'
-    const fileExt = newFileName.split('.').pop().toLowerCase()
+    // Use our new getFileType function to determine the file type
+    const fileType = getFileType(newFileName)
     
-    if (Object.keys(starterCode).includes(fileExt)) {
-      fileType = fileExt
-    } else if (fileExt === 'md' || fileExt === 'json' || fileExt === 'txt') {
-      fileType = fileExt
+    // Prepare starter content based on file type
+    let fileContent = ''
+    if (starterCode[fileType]) {
+      fileContent = starterCode[fileType]
+    } else {
+      // Default content for unsupported file types
+      fileContent = `// New ${fileType} file: ${newFileName}`
     }
     
     const newFile = {
       id: `file_${Date.now()}`,
       name: newFileName,
       type: fileType,
-      content: starterCode[fileType] || '',
+      content: fileContent,
       parent: null
     }
     
@@ -797,12 +847,53 @@ ${htmlContent}
     return languageIcons[extension] || languageIcons.default
   }
 
-  // Get active sidebar view
-  const getSidebarView = () => {
-    switch (activeSidebarItem) {
-      case 'explorer':
-        return (
-          <>
+  // Render the UI
+  return (
+    <div className={`editor-container ${theme === 'vs-dark' ? '' : 'light-theme'}`}>
+      {/* Simplified Header */}
+      <header className="editor-header">
+        <div className="editor-title">
+          <span className="editor-logo">⚡</span>
+          <span>GeistCode</span>
+        </div>
+        <div className="editor-controls">
+          <select 
+            value={language} 
+            onChange={(e) => handleLanguageChange(e.target.value)}
+            style={{
+              backgroundColor: 'var(--bg-light)',
+              color: 'var(--text-color)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              padding: '5px 10px',
+              marginRight: '10px',
+              fontSize: '14px'
+            }}
+          >
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="java">Java</option>
+            <option value="cpp">C++</option>
+            <option value="c">C</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+          </select>
+          <button onClick={toggleSidebar} className="toolbar-button">
+            {isSidebarOpen ? '◀ Files' : '▶ Files'}
+          </button>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div className="editor-main">
+        {/* Simplified Sidebar */}
+        <aside className={`editor-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
+          <div className="sidebar-header">
+            <span>Files</span>
+            <button className="sidebar-toggle" onClick={toggleSidebar}>×</button>
+          </div>
+          
+          <div className="sidebar-content">
             <div className="sidebar-actions">
               <button 
                 className="sidebar-action-button" 
@@ -822,11 +913,10 @@ ${htmlContent}
                 className="sidebar-action-button" 
                 onClick={() => {
                   // Refresh file list (for a real app this would reload from storage)
-                  const timestamp = Date.now()
                   setFiles(prev => [...prev])
                   setFolders(prev => [...prev])
                 }}
-                title="Refresh Explorer"
+                title="Refresh"
               >
                 🔄
               </button>
@@ -966,126 +1056,6 @@ ${htmlContent}
                 </div>
               ))}
             </div>
-          </>
-        );
-      
-      case 'search':
-        return (
-          <div className="search-view">
-            <input 
-              type="text" 
-              className="search-input" 
-              placeholder="Search in workspace..." 
-            />
-            <div className="search-results">
-              <div className="search-placeholder">Enter a search term</div>
-            </div>
-          </div>
-        );
-        
-      case 'git':
-        return (
-          <div className="git-view">
-            <div className="git-placeholder">
-              <p>Git functionality would be here</p>
-              <button className="sidebar-button">Initialize Repository</button>
-            </div>
-          </div>
-        );
-        
-      case 'debug':
-        return (
-          <div className="debug-view">
-            <div className="debug-placeholder">
-              <p>Debug controls</p>
-              <button className="sidebar-button" onClick={runCode} disabled={isLoading}>
-                {isLoading ? '⏳ Running...' : '▶ Run Code'}
-              </button>
-            </div>
-          </div>
-        );
-        
-      case 'extensions':
-        return (
-          <div className="extensions-view">
-            <div className="extensions-placeholder">
-              <p>Extensions would be listed here</p>
-              <button className="sidebar-button">Install Extensions</button>
-            </div>
-          </div>
-        );
-        
-      default:
-        return null;
-    }
-  }
-
-  // Render the UI
-  return (
-    <div className={`editor-container ${theme === 'vs-dark' ? '' : 'light-theme'}`}>
-      {/* Header */}
-      <header className="editor-header">
-        <div className="editor-title">
-          <span className="editor-logo">⌨️</span>
-          <span>Code Editor - {getFileName()}</span>
-        </div>
-        <div className="editor-controls">
-          <button onClick={toggleSidebar} className="toolbar-button">
-            {isSidebarOpen ? '◀ Hide Sidebar' : '▶ Show Sidebar'}
-          </button>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <div className="editor-main">
-        {/* Activity Bar */}
-        <div className="activity-bar">
-          <div 
-            className={`activity-bar-item ${activeSidebarItem === 'explorer' ? 'active' : ''}`}
-            onClick={() => setActiveSidebarItem('explorer')}
-            title="Explorer"
-          >
-            📁
-          </div>
-          <div 
-            className={`activity-bar-item ${activeSidebarItem === 'search' ? 'active' : ''}`}
-            onClick={() => setActiveSidebarItem('search')}
-            title="Search"
-          >
-            🔍
-          </div>
-          <div 
-            className={`activity-bar-item ${activeSidebarItem === 'git' ? 'active' : ''}`}
-            onClick={() => setActiveSidebarItem('git')}
-            title="Source Control"
-          >
-            📊
-          </div>
-          <div 
-            className={`activity-bar-item ${activeSidebarItem === 'debug' ? 'active' : ''}`}
-            onClick={() => setActiveSidebarItem('debug')}
-            title="Run and Debug"
-          >
-            🐞
-          </div>
-          <div 
-            className={`activity-bar-item ${activeSidebarItem === 'extensions' ? 'active' : ''}`}
-            onClick={() => setActiveSidebarItem('extensions')}
-            title="Extensions"
-          >
-            🧩
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <aside className={`editor-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
-          <div className="sidebar-header">
-            <span>{activeSidebarItem.toUpperCase()}</span>
-            <button className="sidebar-toggle" onClick={toggleSidebar}>×</button>
-          </div>
-          
-          <div className="sidebar-content">
-            {getSidebarView()}
           </div>
         </aside>
 
@@ -1119,7 +1089,7 @@ ${htmlContent}
               value={code}
               onChange={handleCodeChange}
               options={{
-                minimap: { enabled: true },
+                minimap: { enabled: false },
                 fontSize: 14,
                 tabSize: 2,
                 automaticLayout: true,
@@ -1135,7 +1105,7 @@ ${htmlContent}
             />
           </div>
 
-          {/* Toolbar */}
+          {/* Simplified Toolbar */}
           <div className="editor-toolbar">
             <button 
               onClick={runCode} 
@@ -1153,6 +1123,22 @@ ${htmlContent}
               🤖 AI Assist
             </button>
             <div className="toolbar-spacer"></div>
+            <select 
+              value={theme} 
+              onChange={handleThemeChange}
+              style={{
+                backgroundColor: 'var(--bg-light)',
+                color: 'var(--text-color)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                padding: '5px 10px',
+                marginRight: '10px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="vs-dark">Dark Theme</option>
+              <option value="light">Light Theme</option>
+            </select>
             <button 
               onClick={clearOutput} 
               className="toolbar-button"
@@ -1165,7 +1151,7 @@ ${htmlContent}
           {/* Output panel */}
           <div className={`output-panel ${isOutputExpanded ? '' : 'collapsed'}`}>
             <div className="output-header" onClick={toggleOutputPanel}>
-              <h3>Output</h3>
+              <h3>Console Output</h3>
               <div className="output-controls">
                 <button className="output-control" onClick={(e) => {
                   e.stopPropagation();
@@ -1190,21 +1176,6 @@ ${htmlContent}
           </div>
         </main>
       </div>
-
-      {/* Status bar */}
-      <footer className="status-bar">
-        <div className="status-left">
-          <div class="status-item">
-            {currentFile ? getFileIcon(currentFile.name) : languageIcons[language]} 
-            {currentFile ? currentFile.name : language.charAt(0).toUpperCase() + language.slice(1)}
-          </div>
-        </div>
-        <div class="status-right">
-          <div class="status-item">
-            {theme === 'vs-dark' ? '🌙 Dark' : '☀️ Light'}
-          </div>
-        </div>
-      </footer>
 
       {/* Create File Modal */}
       {showCreateFileModal && (

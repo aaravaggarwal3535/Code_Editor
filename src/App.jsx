@@ -9,6 +9,7 @@ function App() {
   const [theme, setTheme] = useState('vs-dark')
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [linkedFiles, setLinkedFiles] = useState({});  // Track linked HTML-CSS files
   
   // UI state
   const [isSidebarOpen, setSidebarOpen] = useState(true)
@@ -39,6 +40,7 @@ function App() {
   const [showRenameModal, setShowRenameModal] = useState(false)
   const [itemToRename, setItemToRename] = useState(null)
   const [newItemName, setNewItemName] = useState('')
+
   const [expandedFolders, setExpandedFolders] = useState({})
 
   // Language configurations
@@ -48,7 +50,49 @@ function App() {
     java: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, world!");\n    }\n}',
     cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, world!" << std::endl;\n    return 0;\n}',
     html: '<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n</head>\n<body>\n    <h1>Hello, world!</h1>\n</body>\n</html>',
-    css: '/* Write your CSS here */\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f0f0f0;\n    color: #333;\n}'
+    css: `/* Basic CSS styling */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+  color: #333;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+}
+
+p {
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+.box {
+  background-color: #3498db;
+  color: white;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  margin: 20px 0;
+}
+
+button {
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: #27ae60;
+}`,
+    c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, world!\\n");\n    return 0;\n}',
   }
 
   const languageIcons = {
@@ -61,20 +105,22 @@ function App() {
     txt: '📄',
     md: '📝',
     json: '📊',
+    c: '🔧',
     default: '📄'
   }
 
   // Initialize files and folders
   useEffect(() => {
-    // Sample initial file structure
+    // Sample initial file structure with linked HTML and CSS
     setFiles([
       { id: '1', name: 'script.js', type: 'javascript', content: starterCode.javascript, parent: null },
       { id: '2', name: 'main.py', type: 'python', content: starterCode.python, parent: null },
       { id: '3', name: 'styles.css', type: 'css', content: starterCode.css, parent: null },
-      { id: '4', name: 'index.html', type: 'html', content: starterCode.html, parent: null },
+      { id: '4', name: 'index.html', type: 'html', content: '<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n    <link rel="stylesheet" href="styles.css">\n</head>\n<body>\n    <h1>Hello, world!</h1>\n    <p>This content will be styled by the linked CSS file.</p>\n    <div class="box">This is a styled box</div>\n</body>\n</html>', parent: null },
       { id: '5', name: 'config.json', type: 'json', content: '{\n  "name": "My Project",\n  "version": "1.0.0"\n}', parent: 'folder1' },
       { id: '6', name: 'README.md', type: 'md', content: '# My Project\n\nThis is a sample project.', parent: null },
-      { id: '7', name: 'utils.js', type: 'javascript', content: '// Utility functions\nfunction formatDate(date) {\n  return date.toLocaleDateString();\n}\n\nfunction formatTime(date) {\n  return date.toLocaleTimeString();\n}', parent: 'folder2' }
+      { id: '7', name: 'utils.js', type: 'javascript', content: '// Utility functions\nfunction formatDate(date) {\n  return date.toLocaleDateString();\n}\n\nfunction formatTime(date) {\n  return date.toLocaleTimeString();\n}', parent: 'folder2' },
+      { id: '8', name: 'hello.c', type: 'c', content: starterCode.c, parent: null }
     ])
 
     setFolders([
@@ -93,6 +139,100 @@ function App() {
       'folder3': false
     })
   }, [])
+
+  // Find potential linked files (HTML-CSS integration)
+  useEffect(() => {
+    // Build a map of file relationships
+    const newLinkedFiles = {};
+    
+    // Link HTML files with CSS files
+    const htmlFiles = files.filter(file => file.type === 'html');
+    const cssFiles = files.filter(file => file.type === 'css');
+    
+    htmlFiles.forEach(htmlFile => {
+      // Look for CSS link tags in HTML content
+      const cssLinks = [];
+      const regex = /<link[^>]*rel=['"]stylesheet['"][^>]*href=['"](.*?)['"][^>]*>/g;
+      let match;
+      
+      while ((match = regex.exec(htmlFile.content))) {
+        const href = match[1];
+        // Handle relative paths
+        const fileName = href.split('/').pop();
+        
+        // Find matching CSS file
+        const matchedCss = cssFiles.find(css => css.name === fileName);
+        if (matchedCss) {
+          cssLinks.push(matchedCss.id);
+        }
+      }
+      
+      if (cssLinks.length > 0) {
+        newLinkedFiles[htmlFile.id] = { 
+          type: 'html', 
+          linkedWith: cssLinks,
+          linkedType: 'css'
+        };
+        
+        // Also create the reverse relationship
+        cssLinks.forEach(cssId => {
+          newLinkedFiles[cssId] = { 
+            type: 'css', 
+            linkedWith: [htmlFile.id],
+            linkedType: 'html'
+          };
+        });
+      }
+    });
+    
+    setLinkedFiles(newLinkedFiles);
+  }, [files]);
+  
+  // Update linked files when file content changes
+  useEffect(() => {
+    if (currentFile && currentFile.type === 'html') {
+      // Check for new CSS links when HTML content changes
+      const cssLinks = [];
+      const regex = /<link[^>]*rel=['"]stylesheet['"][^>]*href=['"](.*?)['"][^>]*>/g;
+      let match;
+      
+      while ((match = regex.exec(code))) {
+        const href = match[1];
+        const fileName = href.split('/').pop();
+        
+        // Find matching CSS file
+        const cssFiles = files.filter(file => file.type === 'css');
+        const matchedCss = cssFiles.find(css => css.name === fileName);
+        if (matchedCss) {
+          cssLinks.push(matchedCss.id);
+        }
+      }
+      
+      // Update linkedFiles if there are changes
+      if (cssLinks.length > 0) {
+        setLinkedFiles(prev => ({
+          ...prev,
+          [currentFile.id]: { 
+            type: 'html', 
+            linkedWith: cssLinks,
+            linkedType: 'css'
+          }
+        }));
+        
+        // Update reverse relationships
+        cssLinks.forEach(cssId => {
+          setLinkedFiles(prev => ({
+            ...prev,
+            [cssId]: { 
+              type: 'css', 
+              linkedWith: [...(prev[cssId]?.linkedWith || []), currentFile.id].filter((v, i, a) => a.indexOf(v) === i),
+              linkedType: 'html'
+            }
+          }));
+        });
+      }
+    }
+  }, [currentFile, code, files]);
 
   // Event handlers
   const handleCodeChange = (value) => {
@@ -284,7 +424,7 @@ function App() {
     setIsAIProcessing(true);
     
     try {
-      const response = await fetch('http://localhost:3001/ai/improve', {
+      const response = await fetch('http://localhost:8001/ai/improve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -466,23 +606,128 @@ function App() {
   const renderHTMLPreview = (htmlCode) => {
     if (!previewRef.current) return
     
-    const iframe = document.createElement('iframe')
-    iframe.style.width = '100%'
-    iframe.style.height = '100%'
-    iframe.style.border = 'none'
+    // Check if this HTML file has linked CSS files
+    const htmlFileId = currentFile?.id;
+    if (htmlFileId && linkedFiles[htmlFileId]?.type === 'html') {
+      // This HTML file has linked CSS files, get their content
+      const cssFilesIds = linkedFiles[htmlFileId].linkedWith;
+      const cssContent = cssFilesIds.map(cssId => {
+        const cssFile = files.find(f => f.id === cssId);
+        return cssFile ? cssFile.content : '';
+      }).join('\n');
+      
+      // Insert the CSS content into the HTML
+      // Look for </head> tag
+      let enhancedHtml = htmlCode;
+      if (htmlCode.includes('</head>')) {
+        enhancedHtml = htmlCode.replace('</head>', `<style id="integrated-css">
+${cssContent}
+</style>
+</head>`);
+      } else if (!htmlCode.includes('<head>')) {
+        // If no head tag exists, add one
+        enhancedHtml = `<!DOCTYPE html>
+<html>
+<head>
+<style id="integrated-css">
+${cssContent}
+</style>
+</head>
+${htmlCode}
+</html>`;
+      }
+      
+      // Render the enhanced HTML
+      const iframe = document.createElement('iframe');
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      
+      previewRef.current.innerHTML = '';
+      previewRef.current.appendChild(iframe);
+      
+      const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDocument.open();
+      iframeDocument.write(enhancedHtml);
+      iframeDocument.close();
+      
+      // Log that we're showing integrated preview
+      console.log(`Rendering HTML with ${cssFilesIds.length} linked CSS files`);
+      return;
+    }
     
-    previewRef.current.innerHTML = ''
-    previewRef.current.appendChild(iframe)
+    // Regular HTML preview without CSS integration
+    const iframe = document.createElement('iframe');
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
     
-    const iframeDocument = iframe.contentDocument || iframe.contentWindow.document
-    iframeDocument.open()
-    iframeDocument.write(htmlCode)
-    iframeDocument.close()
+    previewRef.current.innerHTML = '';
+    previewRef.current.appendChild(iframe);
+    
+    const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDocument.open();
+    iframeDocument.write(htmlCode);
+    iframeDocument.close();
   }
 
   const renderCSSPreview = (cssCode) => {
     if (!previewRef.current) return
     
+    // Check if this CSS file is linked to any HTML files
+    const cssFileId = currentFile?.id;
+    
+    if (cssFileId && linkedFiles[cssFileId]?.type === 'css') {
+      // This CSS file is linked to HTML files, render with the HTML
+      const htmlFilesIds = linkedFiles[cssFileId].linkedWith;
+      if (htmlFilesIds.length > 0) {
+        // Use the first linked HTML file
+        const htmlFile = files.find(f => f.id === htmlFilesIds[0]);
+        if (htmlFile) {
+          // Create a modified HTML with the current CSS embedded
+          let htmlContent = htmlFile.content;
+          
+          // Insert the current CSS content
+          if (htmlContent.includes('</head>')) {
+            htmlContent = htmlContent.replace('</head>', `<style id="integrated-css">
+${cssCode}
+</style>
+</head>`);
+          } else if (!htmlContent.includes('<head>')) {
+            // If no head tag exists, add one
+            htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+<style id="integrated-css">
+${cssCode}
+</style>
+</head>
+${htmlContent}
+</html>`;
+          }
+          
+          // Render the enhanced HTML
+          const iframe = document.createElement('iframe');
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.border = 'none';
+          
+          previewRef.current.innerHTML = '';
+          previewRef.current.appendChild(iframe);
+          
+          const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+          iframeDocument.open();
+          iframeDocument.write(htmlContent);
+          iframeDocument.close();
+          
+          // Show a message to indicate this is a CSS preview with HTML
+          setOutput(`Previewing CSS with linked HTML file: ${htmlFile.name}`);
+          return;
+        }
+      }
+    }
+    
+    // Default CSS preview with sample HTML
     const html = `
       <html>
         <head>
@@ -539,6 +784,7 @@ function App() {
       case 'python': return 'main.py'
       case 'java': return 'Main.java'
       case 'cpp': return 'main.cpp'
+      case 'c': return 'main.c'
       case 'html': return 'index.html'
       case 'css': return 'styles.css'
       default: return 'file.txt'
@@ -948,13 +1194,13 @@ function App() {
       {/* Status bar */}
       <footer className="status-bar">
         <div className="status-left">
-          <div className="status-item">
+          <div class="status-item">
             {currentFile ? getFileIcon(currentFile.name) : languageIcons[language]} 
             {currentFile ? currentFile.name : language.charAt(0).toUpperCase() + language.slice(1)}
           </div>
         </div>
-        <div className="status-right">
-          <div className="status-item">
+        <div class="status-right">
+          <div class="status-item">
             {theme === 'vs-dark' ? '🌙 Dark' : '☀️ Light'}
           </div>
         </div>

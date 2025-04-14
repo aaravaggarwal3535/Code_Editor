@@ -182,7 +182,7 @@ app.get('/test-groq', async (req, res) => {
 });
 
 // Start the server
-const PORT = process.env.AI_PORT || 8001;
+const PORT = process.env.PORT || process.env.AI_PORT || 8001;
 const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Simple AI service running on port ${PORT}`);
   logger.info(`Started at: ${new Date().toLocaleString()}`);

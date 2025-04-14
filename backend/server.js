@@ -1,4 +1,4 @@
-// Server for code execution
+// Simple Express server for code execution
 import express from 'express';
 import cors from 'cors';
 import { exec } from 'child_process';
@@ -6,7 +6,10 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import axios from 'axios';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Get current file directory with ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -24,13 +27,20 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Create a temp directory for storing code files
-const tempDir = path.join(__dirname, 'temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir);
-}
+// Health check endpoint for Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', service: 'code-execution-backend' });
+});
 
-// Code execution endpoint
+// Basic info endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    name: 'GeistCode Execution API',
+    version: '1.0.0'
+  });
+});
+
+// Simple execute endpoint for JavaScript only initially
 app.post('/execute', async (req, res) => {
   const { code, language } = req.body;
   const timestamp = Date.now();
@@ -38,20 +48,32 @@ app.post('/execute', async (req, res) => {
   let command;
 
   try {
+    // Create temp directory if it doesn't exist
+    const tempDir = path.join(__dirname, 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir);
+    }
+    
     switch (language) {
       case 'javascript':
-        filePath = path.join(tempDir, `code_${timestamp}.js`);
-        await writeFileAsync(filePath, code);
-        command = `node "${filePath}"`;
+        try {
+          // Execute JavaScript with Node.js
+          const result = await execAsync(`node -e "${code.replace(/"/g, '\\"')}"`);
+          res.json({ result: result.stdout, error: result.stderr });
+        } catch (error) {
+          res.json({ result: '', error: error.message });
+        }
         break;
       
       case 'python':
         filePath = path.join(tempDir, `code_${timestamp}.py`);
         await writeFileAsync(filePath, code);
-        // Try different Python commands for Windows compatibility
+        
         try {
-          // First try with 'py' (Python launcher for Windows)
-          command = `py "${filePath}"`;
+          // Try python3 first (most common on cloud platforms)
+          command = `python3 "${filePath}"`;
+          console.log(`Executing Python with command: ${command}`);
+          
           const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
           
           // Clean up the file
@@ -62,10 +84,12 @@ app.post('/execute', async (req, res) => {
           }
           
           return res.json({ result: stdout, error: stderr });
-        } catch (pyError) {
+        } catch (pythonError) {
           try {
-            // Fall back to 'python' if 'py' fails
+            // Fall back to 'python' if 'python3' fails
             command = `python "${filePath}"`;
+            console.log(`Falling back to: ${command}`);
+            
             const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
             
             // Clean up the file
@@ -76,130 +100,22 @@ app.post('/execute', async (req, res) => {
             }
             
             return res.json({ result: stdout, error: stderr });
-          } catch (pythonError) {
-            try {
-              // Try 'python3' as a last resort
-              command = `python3 "${filePath}"`;
-              const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
-              
-              // Clean up the file
-              try {
-                await unlinkAsync(filePath);
-              } catch (cleanupError) {
-                console.error('Cleanup error:', cleanupError);
-              }
-              
-              return res.json({ result: stdout, error: stderr });
-            } catch (python3Error) {
-              return res.json({ 
-                result: '', 
-                error: 'Failed to execute Python code. Please make sure Python is installed and in your PATH. Error: ' + python3Error.message 
-              });
-            }
+          } catch (error) {
+            console.error('Python execution error:', error);
+            return res.json({ 
+              result: '', 
+              error: 'Failed to execute Python code. Please make sure Python is installed on the server. Error: ' + error.message 
+            });
           }
         }
         break;
-      
-      case 'java':
-        // For Java, we need to extract the class name and create a file with that name
-        const classNameMatch = code.match(/public\s+class\s+(\w+)/);
-        if (!classNameMatch) {
-          return res.json({
-            result: '',
-            error: 'Could not find a public class in your Java code'
-          });
-        }
-        
-        const className = classNameMatch[1];
-        filePath = path.join(tempDir, `${className}.java`);
-        await writeFileAsync(filePath, code);
-        
-        try {
-          // First compile the Java code
-          await execAsync(`javac "${filePath}"`, { timeout: 10000 });
-          
-          // Then run the compiled class file
-          const { stdout, stderr } = await execAsync(`java -cp "${tempDir}" ${className}`, { timeout: 10000 });
-          
-          // Clean up the files
-          try {
-            await unlinkAsync(filePath);
-            await unlinkAsync(path.join(tempDir, `${className}.class`));
-          } catch (cleanupError) {
-            console.error('Cleanup error:', cleanupError);
-          }
-          
-          return res.json({ result: stdout, error: stderr });
-        } catch (javaError) {
-          return res.json({ result: '', error: javaError.message });
-        }
-      
-      case 'cpp':
-        filePath = path.join(tempDir, `code_${timestamp}.cpp`);
-        const outputPath = path.join(tempDir, `code_${timestamp}.exe`);
-        await writeFileAsync(filePath, code);
-        
-        try {
-          // First compile the C++ code
-          await execAsync(`g++ "${filePath}" -o "${outputPath}"`, { timeout: 10000 });
-          
-          // Then run the compiled executable
-          const { stdout, stderr } = await execAsync(`"${outputPath}"`, { timeout: 10000 });
-          
-          // Clean up the files
-          try {
-            await unlinkAsync(filePath);
-            await unlinkAsync(outputPath);
-          } catch (cleanupError) {
-            console.error('Cleanup error:', cleanupError);
-          }
-          
-          return res.json({ result: stdout, error: stderr });
-        } catch (cppError) {
-          return res.json({ result: '', error: cppError.message });
-        }
 
-      case 'c':
-        filePath = path.join(tempDir, `code_${timestamp}.c`);
-        const cOutputPath = path.join(tempDir, `code_${timestamp}.exe`);
-        await writeFileAsync(filePath, code);
-        
-        try {
-          // First compile the C code
-          await execAsync(`gcc "${filePath}" -o "${cOutputPath}"`, { timeout: 10000 });
-          
-          // Then run the compiled executable
-          const { stdout, stderr } = await execAsync(`"${cOutputPath}"`, { timeout: 10000 });
-          
-          // Clean up the files
-          try {
-            await unlinkAsync(filePath);
-            await unlinkAsync(cOutputPath);
-          } catch (cleanupError) {
-            console.error('Cleanup error:', cleanupError);
-          }
-          
-          return res.json({ result: stdout, error: stderr });
-        } catch (cError) {
-          return res.json({ result: '', error: cError.message });
-        }
-      
       default:
-        return res.status(400).json({ error: `Unsupported language: ${language}` });
-    }
-
-    // For JavaScript and Python, execute the command
-    if (language === 'javascript' || language === 'python') {
-      const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
-      
-      // Clean up the file
-      try {
-        await unlinkAsync(filePath);
-      } catch (cleanupError) {
-        console.error('Cleanup error:', cleanupError);
-      }
-      
-      res.json({ result: stdout, error: stderr });
+        // For other languages, return a message that it's not supported yet
+        res.json({ 
+          result: '', 
+          error: `Language "${language}" is not yet supported in the deployed version.` 
+        });
     }
   } catch (error) {
     console.error('Execution error:', error);
@@ -207,7 +123,7 @@ app.post('/execute', async (req, res) => {
   }
 });
 
-// Proxy the AI requests to the Groq service
+// Proxy the AI requests
 app.post('/ai/improve', async (req, res) => {
   try {
     const { code, language, prompt, session_id } = req.body;
@@ -215,35 +131,106 @@ app.post('/ai/improve', async (req, res) => {
     console.log(`Processing AI request for language: ${language}`);
     console.log(`Prompt: ${prompt}`);
     console.log(`Code length: ${code.length} characters`);
-    console.log(`Session ID: ${session_id || 'new session'}`);
     
-    // Use the port where the AI service is running
-    const aiPort = process.env.AI_PORT || 8001;
+    // Check if we're using an external AI service or implementing it directly
+    // First attempt: try implementing the AI functionality directly
     
-    // First check if ping works - Use IPv4 address explicitly
+    // Import the Groq SDK if needed
+    let Groq;
     try {
-      console.log('Pinging AI service...');
-      await axios.get(`http://127.0.0.1:${aiPort}/ping`);
-      console.log('AI service ping successful');
-    } catch (pingError) {
-      console.error('AI service ping failed:', pingError.message);
-      return res.status(503).json({
-        error: 'AI service is not running',
-        details: 'Unable to connect to the AI service'
+      Groq = (await import('groq-sdk')).default;
+    } catch (error) {
+      console.error('Failed to import Groq SDK:', error);
+      return res.status(500).json({
+        error: 'AI service dependencies not available',
+        details: 'The server is not properly configured for AI processing'
       });
     }
     
-    // Send to the AI service endpoint with session_id
-    console.log('Sending request to AI service...');
-    const response = await axios.post(`http://127.0.0.1:${aiPort}/ai/improve`, {
-      code,
-      language,
-      prompt,
-      session_id
+    // Check for API key
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      console.error('No GROQ_API_KEY found in environment variables');
+      return res.status(500).json({
+        error: 'Missing API key',
+        details: 'The GROQ_API_KEY environment variable is not set'
+      });
+    }
+    
+    // Initialize Groq client
+    const groqClient = new Groq({ apiKey: groqApiKey });
+    const MODEL_NAME = "llama3-70b-8192";  // Groq's Llama 3 70B model
+    
+    // Create a prompt for the Groq model
+    const userPrompt = `
+      Please improve this ${language} code according to these requirements:
+      
+      ${prompt}
+      
+      Here is the code to improve:
+      \`\`\`${language}
+      ${code}
+      \`\`\`
+      
+      First provide ONLY the improved code without any explanation or markdown formatting.
+      Then on a new line write "EXPLANATION:" followed by your explanation of the changes.
+    `;
+    
+    // Call Groq API
+    const messages = [
+      {
+        role: "system", 
+        content: "You are an expert programmer focusing on improving code. You provide clear, detailed explanations of your changes."
+      },
+      { role: "user", content: userPrompt }
+    ];
+    
+    console.log("Sending request to Groq API...");
+    const response = await groqClient.chat.completions.create({
+      model: MODEL_NAME,
+      messages: messages,
+      temperature: 0.2,
+      max_tokens: 4000,
     });
     
-    console.log('AI service response received');
-    res.json(response.data);
+    const result = response.choices[0].message.content;
+    console.log(`Received response from Groq API. Length: ${result.length} characters`);
+    
+    // Parse the result to separate code and explanation
+    let parts = result.split("EXPLANATION:");
+    let updatedCode, explanation;
+    
+    if (parts.length > 1) {
+      updatedCode = parts[0].trim();
+      explanation = parts[1].trim();
+    } else {
+      // Simple fallback if no EXPLANATION marker
+      const lines = result.split('\n');
+      const splitPoint = Math.floor(lines.length * 0.7);
+      updatedCode = lines.slice(0, splitPoint).join('\n').trim();
+      explanation = lines.slice(splitPoint).join('\n').trim();
+    }
+    
+    // Clean up the code (remove markdown code blocks if present)
+    if (updatedCode.startsWith("```")) {
+      const codeLines = updatedCode.split('\n');
+      // Find start and end of code block
+      const startIndex = codeLines.findIndex(line => line.includes("```")) + 1;
+      const endIndex = codeLines.slice(startIndex).findIndex(line => line.includes("```")) + startIndex;
+      
+      if (endIndex > startIndex) {
+        updatedCode = codeLines.slice(startIndex, endIndex).join('\n');
+      } else {
+        updatedCode = codeLines.slice(startIndex).join('\n');
+      }
+    }
+    
+    return res.json({
+      updated_code: updatedCode,
+      explanation: explanation,
+      session_id: session_id || 'new_session'
+    });
+    
   } catch (error) {
     console.error('AI service error:', error.message);
     
@@ -262,5 +249,5 @@ app.post('/ai/improve', async (req, res) => {
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Code execution server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

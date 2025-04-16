@@ -6,7 +6,6 @@ import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import http from 'http';
 
 // Get current file directory with ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -36,7 +35,6 @@ const MODEL_NAME = "llama3-70b-8192";  // Groq's Llama 3 70B model - high qualit
 
 // Create a global variable to store the server reference
 let server = null;
-let keepAliveTimer = null;
 
 // Test the API connection
 async function testGroqApi() {
@@ -64,26 +62,6 @@ async function testGroqApi() {
   }
 }
 
-// Function to keep the server alive
-function startKeepAlive() {
-  // Don't create a new timer if one already exists
-  if (keepAliveTimer) return;
-  
-  // Print a message that the server is still running every minute
-  keepAliveTimer = setInterval(() => {
-    console.log(`[${new Date().toLocaleTimeString()}] AI service is still running...`);
-    
-    // Check if we should clean up sessions
-    const now = new Date();
-    if ((now - LAST_CLEANUP_TIME) > SESSION_CLEANUP_INTERVAL) {
-      cleanupExpiredSessions();
-      LAST_CLEANUP_TIME = now;
-    }
-  }, 60 * 1000); // Every minute
-  
-  console.log("Keep-alive timer started to maintain server process");
-}
-
 // Create the express app
 const app = express();
 
@@ -109,7 +87,6 @@ const SESSION_EXPIRY = 24 * 60 * 60 * 1000;  // 24 hours of inactivity
 // Add process event listeners for graceful shutdown
 process.on('SIGINT', () => {
   console.log('Received SIGINT. Shutting down AI service gracefully...');
-  if (keepAliveTimer) clearInterval(keepAliveTimer);
   if (server) {
     server.close(() => {
       console.log('Server closed. Exiting process...');
@@ -122,7 +99,6 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
   console.log('Received SIGTERM. Shutting down AI service gracefully...');
-  if (keepAliveTimer) clearInterval(keepAliveTimer);
   if (server) {
     server.close(() => {
       console.log('Server closed. Exiting process...');
@@ -438,50 +414,30 @@ app.get('/ping', (req, res) => {
 
 // Start the server only if this file is being run directly
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1] === undefined) {
-  // Run as an IIFE (Immediately Invoked Function Expression) to use async/await
+  // First test the Groq API connection
   (async () => {
     try {
-      // Test the Groq API
       await testGroqApi();
-      
-      // Create an HTTP server explicitly (more reliable than app.listen)
-      const PORT = process.env.AI_PORT || 8001;
-      server = http.createServer(app);
-      
-      // Add error handling for the server
-      server.on('error', (error) => {
-        console.error(`Server error: ${error.message}`);
-        console.error(error.stack);
-      });
-      
-      // Start the server
-      server.listen(PORT, '0.0.0.0', () => {
-        console.log(`AI service running on port ${PORT}`);
-        console.log(`Server started at: ${new Date().toLocaleString()}`);
-        console.log(`Press Ctrl+C to stop the service`);
-        
-        // Start the keep-alive mechanism to prevent the process from exiting
-        startKeepAlive();
-      });
-      
-      // This is important: create a permanent reference to prevent garbage collection
-      global.server = server;
-      
     } catch (error) {
-      console.error(`Failed to start AI service: ${error.message}`);
-      console.error(error.stack);
-      process.exit(1);
+      console.error("Groq API test failed, but server will start anyway.");
     }
-  })().catch(error => {
-    console.error(`Unhandled startup error: ${error.message}`);
-    console.error(error.stack);
-    process.exit(1);
-  });
-
-  // Create a non-clearing interval to keep the Node.js process running
-  setInterval(() => {
-    // This empty function keeps the event loop active
-  }, 1000 * 60 * 60); // Run every hour
+    
+    // Start the server after testing the API
+    const PORT = process.env.AI_PORT || 8001;
+    server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`AI service running on port ${PORT}`);
+      
+      // Create an interval for session cleanup and to keep the process alive
+      setInterval(() => {
+        const now = new Date();
+        if ((now - LAST_CLEANUP_TIME) > SESSION_CLEANUP_INTERVAL) {
+          cleanupExpiredSessions();
+          LAST_CLEANUP_TIME = now;
+          console.log(`Service is still running on port ${PORT}...`);
+        }
+      }, 30 * 60 * 1000); // Check every 30 minutes
+    });
+  })();
 }
 
 export default app;

@@ -11,9 +11,8 @@
     "start:backend": "node backend/server.js",
     "start:dev": "concurrently \"npm run dev\" \"npm run start:backend\"",
     "start": "concurrently \"npm run preview\" \"npm run start:backend\"",
-    "start:ai": "node backend/simple-ai-service.js",
-    "start:all": "concurrently --names \"BACKEND,AI,FRONTEND\" --prefix-colors \"yellow,blue,green\" --kill-others \"npm run start:backend\" \"npm run start:ai\" \"npm run dev\"",
-    "start:app": "npm run start:all"
+    "start:ai": "node --no-deprecation backend/ai_service.js",
+    "start:all": "concurrently \"npm run start:backend\" \"npm run start:ai\" \"npm run dev\""
   },
   "dependencies": {
     "groq-sdk": "^0.19.0",

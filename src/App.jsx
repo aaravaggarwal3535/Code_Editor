@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import './App.css'
+import ExternalCompilerService from './externalCompilerService'
+import API_CONFIG from './apiConfig'
 
 function App() {
   // Core state
@@ -9,7 +11,6 @@ function App() {
   const [theme, setTheme] = useState('vs-dark')
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [linkedFiles, setLinkedFiles] = useState({});  // Track linked HTML-CSS files
   
   // UI state
   const [isSidebarOpen, setSidebarOpen] = useState(true)
@@ -40,7 +41,6 @@ function App() {
   const [showRenameModal, setShowRenameModal] = useState(false)
   const [itemToRename, setItemToRename] = useState(null)
   const [newItemName, setNewItemName] = useState('')
-
   const [expandedFolders, setExpandedFolders] = useState({})
 
   // Language configurations
@@ -49,50 +49,9 @@ function App() {
     python: '# Write your Python code here\nprint("Hello, world!")',
     java: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, world!");\n    }\n}',
     cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, world!" << std::endl;\n    return 0;\n}',
-    html: '<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n</head>\n<body>\n    <h1>Hello, world!</h1>\n</body>\n</html>',
-    css: `/* Basic CSS styling */
-body {
-  font-family: Arial, sans-serif;
-  background-color: #f0f0f0;
-  color: #333;
-  margin: 0;
-  padding: 20px;
-}
-
-h1 {
-  color: #2c3e50;
-  border-bottom: 2px solid #3498db;
-  padding-bottom: 10px;
-}
-
-p {
-  line-height: 1.6;
-  margin-bottom: 15px;
-}
-
-.box {
-  background-color: #3498db;
-  color: white;
-  padding: 15px;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  margin: 20px 0;
-}
-
-button {
-  background-color: #2ecc71;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-button:hover {
-  background-color: #27ae60;
-}`,
     c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, world!\\n");\n    return 0;\n}',
+    html: '<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n</head>\n<body>\n    <h1>Hello, world!</h1>\n</body>\n</html>',
+    css: '/* Write your CSS here */\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f0f0f0;\n    color: #333;\n}'
   }
 
   const languageIcons = {
@@ -100,73 +59,26 @@ button:hover {
     python: '🐍',
     java: '☕',
     cpp: '⚙️',
+    c: '🔧',
     html: '🌐',
     css: '🎨',
     txt: '📄',
     md: '📝',
     json: '📊',
-    c: '🔧',
     default: '📄'
   }
 
-  // Get file type from file extension
-  const getFileType = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
-    
-    // Map common extensions to language types
-    const extensionMap = {
-      // JavaScript and related
-      'js': 'javascript',
-      'jsx': 'javascript',
-      'ts': 'typescript',
-      'tsx': 'typescript',
-      
-      // Web
-      'html': 'html',
-      'htm': 'html',
-      'css': 'css',
-      'scss': 'scss',
-      'less': 'less',
-      
-      // C-family
-      'c': 'c',
-      'cpp': 'cpp',
-      'h': 'c',
-      'hpp': 'cpp',
-      
-      // Python
-      'py': 'python',
-      'pyw': 'python',
-      
-      // Java
-      'java': 'java',
-      
-      // Other common types
-      'json': 'json',
-      'md': 'markdown',
-      'txt': 'plaintext',
-      'xml': 'xml',
-      'yaml': 'yaml',
-      'yml': 'yaml',
-      'sh': 'shell',
-      'bat': 'bat'
-    };
-    
-    return extensionMap[extension] || 'plaintext';
-  };
-
   // Initialize files and folders
   useEffect(() => {
-    // Sample initial file structure with linked HTML and CSS
+    // Sample initial file structure
     setFiles([
       { id: '1', name: 'script.js', type: 'javascript', content: starterCode.javascript, parent: null },
       { id: '2', name: 'main.py', type: 'python', content: starterCode.python, parent: null },
       { id: '3', name: 'styles.css', type: 'css', content: starterCode.css, parent: null },
-      { id: '4', name: 'index.html', type: 'html', content: '<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n    <link rel="stylesheet" href="styles.css">\n</head>\n<body>\n    <h1>Hello, world!</h1>\n    <p>This content will be styled by the linked CSS file.</p>\n    <div class="box">This is a styled box</div>\n</body>\n</html>', parent: null },
+      { id: '4', name: 'index.html', type: 'html', content: starterCode.html, parent: null },
       { id: '5', name: 'config.json', type: 'json', content: '{\n  "name": "My Project",\n  "version": "1.0.0"\n}', parent: 'folder1' },
       { id: '6', name: 'README.md', type: 'md', content: '# My Project\n\nThis is a sample project.', parent: null },
-      { id: '7', name: 'utils.js', type: 'javascript', content: '// Utility functions\nfunction formatDate(date) {\n  return date.toLocaleDateString();\n}\n\nfunction formatTime(date) {\n  return date.toLocaleTimeString();\n}', parent: 'folder2' },
-      { id: '8', name: 'hello.c', type: 'c', content: starterCode.c, parent: null }
+      { id: '7', name: 'utils.js', type: 'javascript', content: '// Utility functions\nfunction formatDate(date) {\n  return date.toLocaleDateString();\n}\n\nfunction formatTime(date) {\n  return date.toLocaleTimeString();\n}', parent: 'folder2' }
     ])
 
     setFolders([
@@ -185,100 +97,6 @@ button:hover {
       'folder3': false
     })
   }, [])
-
-  // Find potential linked files (HTML-CSS integration)
-  useEffect(() => {
-    // Build a map of file relationships
-    const newLinkedFiles = {};
-    
-    // Link HTML files with CSS files
-    const htmlFiles = files.filter(file => file.type === 'html');
-    const cssFiles = files.filter(file => file.type === 'css');
-    
-    htmlFiles.forEach(htmlFile => {
-      // Look for CSS link tags in HTML content
-      const cssLinks = [];
-      const regex = /<link[^>]*rel=['"]stylesheet['"][^>]*href=['"](.*?)['"][^>]*>/g;
-      let match;
-      
-      while ((match = regex.exec(htmlFile.content))) {
-        const href = match[1];
-        // Handle relative paths
-        const fileName = href.split('/').pop();
-        
-        // Find matching CSS file
-        const matchedCss = cssFiles.find(css => css.name === fileName);
-        if (matchedCss) {
-          cssLinks.push(matchedCss.id);
-        }
-      }
-      
-      if (cssLinks.length > 0) {
-        newLinkedFiles[htmlFile.id] = { 
-          type: 'html', 
-          linkedWith: cssLinks,
-          linkedType: 'css'
-        };
-        
-        // Also create the reverse relationship
-        cssLinks.forEach(cssId => {
-          newLinkedFiles[cssId] = { 
-            type: 'css', 
-            linkedWith: [htmlFile.id],
-            linkedType: 'html'
-          };
-        });
-      }
-    });
-    
-    setLinkedFiles(newLinkedFiles);
-  }, [files]);
-  
-  // Update linked files when file content changes
-  useEffect(() => {
-    if (currentFile && currentFile.type === 'html') {
-      // Check for new CSS links when HTML content changes
-      const cssLinks = [];
-      const regex = /<link[^>]*rel=['"]stylesheet['"][^>]*href=['"](.*?)['"][^>]*>/g;
-      let match;
-      
-      while ((match = regex.exec(code))) {
-        const href = match[1];
-        const fileName = href.split('/').pop();
-        
-        // Find matching CSS file
-        const cssFiles = files.filter(file => file.type === 'css');
-        const matchedCss = cssFiles.find(css => css.name === fileName);
-        if (matchedCss) {
-          cssLinks.push(matchedCss.id);
-        }
-      }
-      
-      // Update linkedFiles if there are changes
-      if (cssLinks.length > 0) {
-        setLinkedFiles(prev => ({
-          ...prev,
-          [currentFile.id]: { 
-            type: 'html', 
-            linkedWith: cssLinks,
-            linkedType: 'css'
-          }
-        }));
-        
-        // Update reverse relationships
-        cssLinks.forEach(cssId => {
-          setLinkedFiles(prev => ({
-            ...prev,
-            [cssId]: { 
-              type: 'css', 
-              linkedWith: [...(prev[cssId]?.linkedWith || []), currentFile.id].filter((v, i, a) => a.indexOf(v) === i),
-              linkedType: 'html'
-            }
-          }));
-        });
-      }
-    }
-  }, [currentFile, code, files]);
 
   // Event handlers
   const handleCodeChange = (value) => {
@@ -315,7 +133,6 @@ button:hover {
   // File operations
   const openFile = (file) => {
     setCurrentFile(file)
-    // Use the file type from the file object to set the editor language
     setLanguage(file.type)
     setCode(file.content)
     clearOutput()
@@ -328,23 +145,20 @@ button:hover {
   const handleCreateFile = () => {
     if (!newFileName.trim()) return
     
-    // Use our new getFileType function to determine the file type
-    const fileType = getFileType(newFileName)
+    let fileType = 'txt'
+    const fileExt = newFileName.split('.').pop().toLowerCase()
     
-    // Prepare starter content based on file type
-    let fileContent = ''
-    if (starterCode[fileType]) {
-      fileContent = starterCode[fileType]
-    } else {
-      // Default content for unsupported file types
-      fileContent = `// New ${fileType} file: ${newFileName}`
+    if (Object.keys(starterCode).includes(fileExt)) {
+      fileType = fileExt
+    } else if (fileExt === 'md' || fileExt === 'json' || fileExt === 'txt') {
+      fileType = fileExt
     }
     
     const newFile = {
       id: `file_${Date.now()}`,
       name: newFileName,
       type: fileType,
-      content: fileContent,
+      content: starterCode[fileType] || '',
       parent: null
     }
     
@@ -474,7 +288,7 @@ button:hover {
     setIsAIProcessing(true);
     
     try {
-      const response = await fetch('http://localhost:8001/ai/improve', {
+      const response = await fetch(`${API_CONFIG.LOCAL_API_URL}/ai/improve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -490,6 +304,19 @@ button:hover {
       }
       
       const data = await response.json();
+      
+      // Check if the response contains an error flag
+      if (data.error) {
+        // Handle API key error specifically
+        if (data.explanation && data.explanation.includes("API Key")) {
+          setAIExplanation(`The AI service is not properly configured. The administrator needs to set up a valid API key. Please try again later.`);
+        } else {
+          // For other errors
+          setAIExplanation(data.explanation || `There was an error processing your request. Please try again later.`);
+        }
+        // Don't update code if there was an error
+        return;
+      }
       
       // Save the session ID for future requests
       if (data.session_id) {
@@ -526,7 +353,15 @@ button:hover {
       setAIPrompt(''); // Clear the prompt field after successful processing
     } catch (error) {
       console.error('AI processing error:', error);
-      setAIExplanation(`Error: ${error.message}`);
+      
+      // Check for specific error patterns
+      if (error.message && error.message.includes("401")) {
+        setAIExplanation(`AI service configuration error: The API key is invalid or not set up correctly. This is an administrator issue - please contact the site admin.`);
+      } else if (error.message && error.message.includes("Failed to fetch")) {
+        setAIExplanation(`Unable to connect to the AI service. Please check your internet connection or try again later.`);
+      } else {
+        setAIExplanation(`Error: ${error.message}. Please try again later.`);
+      }
     } finally {
       setIsAIProcessing(false);
     }
@@ -628,7 +463,19 @@ button:hover {
   // Helper function to execute code on the backend
   const executeOnBackend = async () => {
     try {
-      const response = await fetch('http://localhost:3001/execute', {
+      // Check if this is a language that should be executed externally
+      if (ExternalCompilerService.needsExternalExecution(language)) {
+        // Use external service for Python, Java, C and C++
+        const result = await ExternalCompilerService.executeCode(code, language);
+        setOutput(result.result || 'No output received.');
+        if (result.error) {
+          setOutput(prev => `${prev}\n\nError: ${result.error}`);
+        }
+        return;
+      }
+      
+      // For JavaScript and other languages, continue using local backend
+      const response = await fetch(`${API_CONFIG.LOCAL_API_URL}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language })
@@ -656,128 +503,23 @@ button:hover {
   const renderHTMLPreview = (htmlCode) => {
     if (!previewRef.current) return
     
-    // Check if this HTML file has linked CSS files
-    const htmlFileId = currentFile?.id;
-    if (htmlFileId && linkedFiles[htmlFileId]?.type === 'html') {
-      // This HTML file has linked CSS files, get their content
-      const cssFilesIds = linkedFiles[htmlFileId].linkedWith;
-      const cssContent = cssFilesIds.map(cssId => {
-        const cssFile = files.find(f => f.id === cssId);
-        return cssFile ? cssFile.content : '';
-      }).join('\n');
-      
-      // Insert the CSS content into the HTML
-      // Look for </head> tag
-      let enhancedHtml = htmlCode;
-      if (htmlCode.includes('</head>')) {
-        enhancedHtml = htmlCode.replace('</head>', `<style id="integrated-css">
-${cssContent}
-</style>
-</head>`);
-      } else if (!htmlCode.includes('<head>')) {
-        // If no head tag exists, add one
-        enhancedHtml = `<!DOCTYPE html>
-<html>
-<head>
-<style id="integrated-css">
-${cssContent}
-</style>
-</head>
-${htmlCode}
-</html>`;
-      }
-      
-      // Render the enhanced HTML
-      const iframe = document.createElement('iframe');
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = 'none';
-      
-      previewRef.current.innerHTML = '';
-      previewRef.current.appendChild(iframe);
-      
-      const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDocument.open();
-      iframeDocument.write(enhancedHtml);
-      iframeDocument.close();
-      
-      // Log that we're showing integrated preview
-      console.log(`Rendering HTML with ${cssFilesIds.length} linked CSS files`);
-      return;
-    }
+    const iframe = document.createElement('iframe')
+    iframe.style.width = '100%'
+    iframe.style.height = '100%'
+    iframe.style.border = 'none'
     
-    // Regular HTML preview without CSS integration
-    const iframe = document.createElement('iframe');
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
+    previewRef.current.innerHTML = ''
+    previewRef.current.appendChild(iframe)
     
-    previewRef.current.innerHTML = '';
-    previewRef.current.appendChild(iframe);
-    
-    const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
-    iframeDocument.open();
-    iframeDocument.write(htmlCode);
-    iframeDocument.close();
+    const iframeDocument = iframe.contentDocument || iframe.contentWindow.document
+    iframeDocument.open()
+    iframeDocument.write(htmlCode)
+    iframeDocument.close()
   }
 
   const renderCSSPreview = (cssCode) => {
     if (!previewRef.current) return
     
-    // Check if this CSS file is linked to any HTML files
-    const cssFileId = currentFile?.id;
-    
-    if (cssFileId && linkedFiles[cssFileId]?.type === 'css') {
-      // This CSS file is linked to HTML files, render with the HTML
-      const htmlFilesIds = linkedFiles[cssFileId].linkedWith;
-      if (htmlFilesIds.length > 0) {
-        // Use the first linked HTML file
-        const htmlFile = files.find(f => f.id === htmlFilesIds[0]);
-        if (htmlFile) {
-          // Create a modified HTML with the current CSS embedded
-          let htmlContent = htmlFile.content;
-          
-          // Insert the current CSS content
-          if (htmlContent.includes('</head>')) {
-            htmlContent = htmlContent.replace('</head>', `<style id="integrated-css">
-${cssCode}
-</style>
-</head>`);
-          } else if (!htmlContent.includes('<head>')) {
-            // If no head tag exists, add one
-            htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-<style id="integrated-css">
-${cssCode}
-</style>
-</head>
-${htmlContent}
-</html>`;
-          }
-          
-          // Render the enhanced HTML
-          const iframe = document.createElement('iframe');
-          iframe.style.width = '100%';
-          iframe.style.height = '100%';
-          iframe.style.border = 'none';
-          
-          previewRef.current.innerHTML = '';
-          previewRef.current.appendChild(iframe);
-          
-          const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
-          iframeDocument.open();
-          iframeDocument.write(htmlContent);
-          iframeDocument.close();
-          
-          // Show a message to indicate this is a CSS preview with HTML
-          setOutput(`Previewing CSS with linked HTML file: ${htmlFile.name}`);
-          return;
-        }
-      }
-    }
-    
-    // Default CSS preview with sample HTML
     const html = `
       <html>
         <head>
@@ -847,53 +589,12 @@ ${htmlContent}
     return languageIcons[extension] || languageIcons.default
   }
 
-  // Render the UI
-  return (
-    <div className={`editor-container ${theme === 'vs-dark' ? '' : 'light-theme'}`}>
-      {/* Simplified Header */}
-      <header className="editor-header">
-        <div className="editor-title">
-          <span className="editor-logo">⚡</span>
-          <span>GeistCode</span>
-        </div>
-        <div className="editor-controls">
-          <select 
-            value={language} 
-            onChange={(e) => handleLanguageChange(e.target.value)}
-            style={{
-              backgroundColor: 'var(--bg-light)',
-              color: 'var(--text-color)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '4px',
-              padding: '5px 10px',
-              marginRight: '10px',
-              fontSize: '14px'
-            }}
-          >
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-            <option value="c">C</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-          </select>
-          <button onClick={toggleSidebar} className="toolbar-button">
-            {isSidebarOpen ? '◀ Files' : '▶ Files'}
-          </button>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <div className="editor-main">
-        {/* Simplified Sidebar */}
-        <aside className={`editor-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
-          <div className="sidebar-header">
-            <span>Files</span>
-            <button className="sidebar-toggle" onClick={toggleSidebar}>×</button>
-          </div>
-          
-          <div className="sidebar-content">
+  // Get active sidebar view
+  const getSidebarView = () => {
+    switch (activeSidebarItem) {
+      case 'explorer':
+        return (
+          <>
             <div className="sidebar-actions">
               <button 
                 className="sidebar-action-button" 
@@ -913,10 +614,11 @@ ${htmlContent}
                 className="sidebar-action-button" 
                 onClick={() => {
                   // Refresh file list (for a real app this would reload from storage)
+                  const timestamp = Date.now()
                   setFiles(prev => [...prev])
                   setFolders(prev => [...prev])
                 }}
-                title="Refresh"
+                title="Refresh Explorer"
               >
                 🔄
               </button>
@@ -1056,6 +758,126 @@ ${htmlContent}
                 </div>
               ))}
             </div>
+          </>
+        );
+      
+      case 'search':
+        return (
+          <div className="search-view">
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Search in workspace..." 
+            />
+            <div className="search-results">
+              <div className="search-placeholder">Enter a search term</div>
+            </div>
+          </div>
+        );
+        
+      case 'git':
+        return (
+          <div className="git-view">
+            <div className="git-placeholder">
+              <p>Git functionality would be here</p>
+              <button className="sidebar-button">Initialize Repository</button>
+            </div>
+          </div>
+        );
+        
+      case 'debug':
+        return (
+          <div className="debug-view">
+            <div className="debug-placeholder">
+              <p>Debug controls</p>
+              <button className="sidebar-button" onClick={runCode} disabled={isLoading}>
+                {isLoading ? '⏳ Running...' : '▶ Run Code'}
+              </button>
+            </div>
+          </div>
+        );
+        
+      case 'extensions':
+        return (
+          <div className="extensions-view">
+            <div className="extensions-placeholder">
+              <p>Extensions would be listed here</p>
+              <button className="sidebar-button">Install Extensions</button>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  }
+
+  // Render the UI
+  return (
+    <div className={`editor-container ${theme === 'vs-dark' ? '' : 'light-theme'}`}>
+      {/* Header */}
+      <header className="editor-header">
+        <div className="editor-title">
+          <span className="editor-logo">⌨️</span>
+          <span>Code Editor - {getFileName()}</span>
+        </div>
+        <div className="editor-controls">
+          <button onClick={toggleSidebar} className="toolbar-button">
+            {isSidebarOpen ? '◀ Hide Sidebar' : '▶ Show Sidebar'}
+          </button>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div className="editor-main">
+        {/* Activity Bar */}
+        <div className="activity-bar">
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'explorer' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('explorer')}
+            title="Explorer"
+          >
+            📁
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('search')}
+            title="Search"
+          >
+            🔍
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'git' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('git')}
+            title="Source Control"
+          >
+            📊
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'debug' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('debug')}
+            title="Run and Debug"
+          >
+            🐞
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'extensions' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('extensions')}
+            title="Extensions"
+          >
+            🧩
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <aside className={`editor-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
+          <div className="sidebar-header">
+            <span>{activeSidebarItem.toUpperCase()}</span>
+            <button className="sidebar-toggle" onClick={toggleSidebar}>×</button>
+          </div>
+          
+          <div className="sidebar-content">
+            {getSidebarView()}
           </div>
         </aside>
 
@@ -1089,7 +911,7 @@ ${htmlContent}
               value={code}
               onChange={handleCodeChange}
               options={{
-                minimap: { enabled: false },
+                minimap: { enabled: true },
                 fontSize: 14,
                 tabSize: 2,
                 automaticLayout: true,
@@ -1105,7 +927,7 @@ ${htmlContent}
             />
           </div>
 
-          {/* Simplified Toolbar */}
+          {/* Toolbar */}
           <div className="editor-toolbar">
             <button 
               onClick={runCode} 
@@ -1123,22 +945,6 @@ ${htmlContent}
               🤖 AI Assist
             </button>
             <div className="toolbar-spacer"></div>
-            <select 
-              value={theme} 
-              onChange={handleThemeChange}
-              style={{
-                backgroundColor: 'var(--bg-light)',
-                color: 'var(--text-color)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '4px',
-                padding: '5px 10px',
-                marginRight: '10px',
-                fontSize: '14px'
-              }}
-            >
-              <option value="vs-dark">Dark Theme</option>
-              <option value="light">Light Theme</option>
-            </select>
             <button 
               onClick={clearOutput} 
               className="toolbar-button"
@@ -1151,7 +957,7 @@ ${htmlContent}
           {/* Output panel */}
           <div className={`output-panel ${isOutputExpanded ? '' : 'collapsed'}`}>
             <div className="output-header" onClick={toggleOutputPanel}>
-              <h3>Console Output</h3>
+              <h3>Output</h3>
               <div className="output-controls">
                 <button className="output-control" onClick={(e) => {
                   e.stopPropagation();
@@ -1176,6 +982,24 @@ ${htmlContent}
           </div>
         </main>
       </div>
+
+      {/* Status bar */}
+      <footer className="status-bar">
+        <div className="status-left">
+          <div className="status-item">
+            {currentFile ? getFileIcon(currentFile.name) : languageIcons[language]} 
+            {currentFile ? currentFile.name : language.charAt(0).toUpperCase() + language.slice(1)}
+          </div>
+        </div>
+        <div class="status-right">
+          <div class="status-item">
+            <select value={theme} onChange={handleThemeChange}>
+              <option value="vs-dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+        </div>
+      </footer>
 
       {/* Create File Modal */}
       {showCreateFileModal && (

@@ -51,7 +51,12 @@
 
 .settings-nav-item.active {
   background: var(--hover-bg);
-  border-left-color: var(--status-bar-bg);
+  border-left-color: var(--primary-color);
+}
+
+.light-theme .settings-nav-item.active {
+  color: var(--primary-color);
+  font-weight: 600;
 }
 
 .settings-nav-icon {
@@ -139,11 +144,19 @@
   font-size: 13px;
 }
 
+.light-theme .setting-label {
+  color: #333333;
+}
+
 .setting-description {
   margin: 0;
   font-size: 12px;
   color: var(--text-dimmed);
   line-height: 1.4;
+}
+
+.light-theme .setting-description {
+  color: #666666;
 }
 
 .setting-reset-button {
@@ -172,9 +185,15 @@
   padding: 6px 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--bg-color);
+  background: var(--input-bg);
   color: var(--text-color);
   font-size: 13px;
+}
+
+.light-theme .settings-select,
+.light-theme .settings-text,
+.light-theme .settings-number {
+  border-color: #c8c8c8;
 }
 
 .settings-number {
@@ -194,4 +213,8 @@
   color: var(--text-dimmed);
   font-size: 14px;
   font-style: italic;
+}
+
+.light-theme .no-settings-message {
+  color: #666666;
 }

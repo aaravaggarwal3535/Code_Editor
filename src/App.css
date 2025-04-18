@@ -432,7 +432,6 @@
   display: flex;
   flex: 1;
   overflow: hidden;
-  position: relative;
 }
 
 /* Activity bar */
@@ -545,7 +544,7 @@
 
 .sidebar-action-button:hover {
   background-color: var(--hover-bg);
-}
+}vdf
 
 .file-explorer {
   display: flex;
@@ -756,21 +755,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  display: none;  /* Hide when settings are active */
-}
-
-.editor-content.visible {
-  display: flex;
-}
-
-/* Settings visibility control */
-.settings-active .editor-content {
-  display: none;
-}
-
-.settings-active .settings-container {
-  display: flex;
-  width: 100%;
 }
 
 /* Tabs */

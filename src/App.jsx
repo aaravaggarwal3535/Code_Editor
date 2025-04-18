@@ -326,7 +326,20 @@ function App() {
   }
 
   const handleThemeChange = (e) => {
-    setTheme(e.target.value)
+    const newTheme = e.target.value;
+    setTheme(newTheme);
+    
+    // Apply Monaco editor theme correctly
+    const monacoTheme = newTheme === 'light' ? 'vs-light' : 'vs-dark';
+    
+    // Update editor settings if needed
+    if (editorSettings.theme !== monacoTheme) {
+      const updatedSettings = {
+        ...editorSettings,
+        theme: monacoTheme
+      };
+      setEditorSettings(updatedSettings);
+    }
   }
 
   const toggleSidebar = () => {
@@ -361,12 +374,20 @@ function App() {
       fileType = fileExt
     }
     
+    // Special case for Python files
+    if (fileExt === 'py') {
+      fileType = 'python'
+    }
+    
+    // Create file with proper parent folder support
+    const activeFolderId = findActiveFolderId();
+    
     const newFile = {
       id: `file_${Date.now()}`,
       name: newFileName,
       type: fileType,
       content: starterCode[fileType] || '',
-      parent: null
+      parent: activeFolderId
     }
     
     setFiles(prevFiles => [...prevFiles, newFile])
@@ -376,6 +397,24 @@ function App() {
     setShowCreateFileModal(false)
     setNewFileName('')
   }
+  
+  // Helper to find which folder is active when creating a new file
+  const findActiveFolderId = () => {
+    // Get the last clicked folder
+    let activeFolderId = null;
+    
+    // Check if we have expanded folders - use the last one that's expanded
+    const expandedFolderIds = Object.entries(expandedFolders)
+      .filter(([_, isExpanded]) => isExpanded)
+      .map(([id]) => id);
+      
+    if (expandedFolderIds.length > 0) {
+      // Return the last expanded folder as the active one
+      activeFolderId = expandedFolderIds[expandedFolderIds.length - 1];
+    }
+    
+    return activeFolderId;
+  }
 
   const createNewFolder = () => {
     setShowCreateFolderModal(true)
@@ -384,10 +423,13 @@ function App() {
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return
     
+    // Get the currently active folder to use as parent
+    const activeFolderId = findActiveFolderId();
+    
     const newFolder = {
       id: `folder_${Date.now()}`,
       name: newFolderName,
-      parent: null
+      parent: activeFolderId
     }
     
     setFolders(prevFolders => [...prevFolders, newFolder])
@@ -792,8 +834,24 @@ function App() {
 
   // Get icon for file type
   const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase()
-    return languageIcons[extension] || languageIcons.default
+    if (!fileName) return languageIcons.default;
+    
+    // Extract extension properly, handle files without extensions
+    const parts = fileName.split('.');
+    const extension = parts.length > 1 ? parts.pop().toLowerCase() : 'default';
+    
+    // First check if we have a direct match
+    if (languageIcons[extension]) {
+      return languageIcons[extension];
+    }
+    
+    // Special cases for common prefixes
+    if (extension.startsWith('ts')) return languageIcons.ts;
+    if (extension.startsWith('js')) return languageIcons.js;
+    if (extension.startsWith('py')) return languageIcons.py;
+    
+    // Default fallback
+    return languageIcons.default;
   }
 
   // Get active sidebar view
@@ -1135,18 +1193,23 @@ function App() {
               value={code}
               onChange={handleCodeChange}
               options={{
-                minimap: { enabled: true },
-                fontSize: 14,
-                tabSize: 2,
+                minimap: { enabled: editorSettings.minimap },
+                fontSize: editorSettings.fontSize,
+                fontFamily: editorSettings.fontFamily,
+                tabSize: editorSettings.tabSize,
+                wordWrap: editorSettings.wordWrap,
+                lineNumbers: editorSettings.lineNumbers,
+                scrollBeyondLastLine: editorSettings.scrollBeyondLastLine,
+                cursorStyle: editorSettings.cursorStyle,
+                cursorBlinking: editorSettings.cursorBlinking,
+                formatOnPaste: editorSettings.formatOnPaste,
+                formatOnType: editorSettings.formatOnType,
                 automaticLayout: true,
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                lineNumbers: 'on',
-                renderLineHighlight: 'all',
                 scrollbar: {
                   vertical: 'auto',
                   horizontal: 'auto'
-                }
+                },
+                cursorWidth: 2, // Increase cursor width for better visibility
               }}
             />
           </div>

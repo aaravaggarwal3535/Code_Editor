@@ -13,6 +13,18 @@
   --editor-line: #2d2d3d;
 }
 
+.light-theme {
+  --primary: #0078d4;
+  --primary-dark: #106ebe;
+  --secondary: #2b88d8;
+  --bg-dark: #f5f5f5;
+  --text-light: rgba(0, 0, 0, 0.92);
+  --text-dimmed: rgba(0, 0, 0, 0.7);
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --editor-bg: #ffffff;
+  --editor-line: #d4d4d4;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -28,8 +40,8 @@ body {
 
 /* Custom cursor */
 .cursor {
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 20px;
   border: 2px solid var(--primary);
   border-radius: 50%;
   position: fixed;
@@ -43,8 +55,8 @@ body {
 .cursor::after {
   content: '';
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background: var(--primary);
   border-radius: 50%;
   top: 50%;

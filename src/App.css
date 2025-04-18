@@ -1163,6 +1163,147 @@
   overflow-wrap: break-word;
 }
 
+/* Terminal styles */
+.terminal-container {
+  display: flex;
+  flex-direction: column;
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+  border-top: 1px solid var(--border-color);
+  height: 300px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.terminal-header {
+  height: 32px;
+  background-color: var(--bg-lighter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+}
+
+.terminal-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.terminal-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.terminal-control {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.terminal-control:hover {
+  background-color: var(--hover-bg);
+}
+
+.terminal-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.terminal-history::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-history::-webkit-scrollbar-thumb {
+  background-color: #666;
+  border-radius: 4px;
+}
+
+.terminal-command {
+  margin: 4px 0;
+}
+
+.terminal-command-prompt {
+  color: #0f0;
+  margin-right: 5px;
+}
+
+.terminal-response {
+  margin: 4px 0;
+  color: #ccc;
+  white-space: pre-wrap;
+}
+
+.terminal-error {
+  margin: 4px 0;
+  color: #f55;
+  white-space: pre-wrap;
+}
+
+.terminal-input-container {
+  display: flex;
+  padding: 5px 10px 10px 10px;
+  align-items: center;
+}
+
+.terminal-prompt {
+  color: #0f0;
+  margin-right: 5px;
+}
+
+.terminal-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+  margin: 0;
+  outline: none;
+}
+
+.light-theme .terminal-container {
+  background-color: #f5f5f5;
+  color: #333;
+  border-top: 1px solid #ddd;
+}
+
+.light-theme .terminal-header {
+  background-color: #e7e7e7;
+}
+
+.light-theme .terminal-command-prompt {
+  color: #0a0;
+}
+
+.light-theme .terminal-response {
+  color: #555;
+}
+
+.light-theme .terminal-error {
+  color: #d00;
+}
+
+.light-theme .terminal-prompt {
+  color: #0a0;
+}
+
+.light-theme .terminal-input {
+  color: #000;
+}
+
 /* Light theme */
 .light-theme {
   --primary-color: #0078d4;

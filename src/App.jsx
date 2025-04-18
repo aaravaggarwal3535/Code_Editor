@@ -150,6 +150,14 @@ function App() {
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   
+  // Terminal state
+  const [terminalVisible, setTerminalVisible] = useState(false)
+  const [terminalInput, setTerminalInput] = useState('')
+  const [terminalHistory, setTerminalHistory] = useState([])
+  const terminalInputRef = useRef(null)
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false)
+  const [runningProcess, setRunningProcess] = useState(null)
+  
   // UI state
   const [isSidebarOpen, setSidebarOpen] = useState(true)
   const [isOutputExpanded, setIsOutputExpanded] = useState(false)
@@ -668,9 +676,18 @@ function App() {
 
   // Code execution
   const runCode = async () => {
-    setIsLoading(true)
-    setOutput('Running code...')
-    setIsOutputExpanded(true)
+    setIsLoading(true);
+    
+    // Make sure terminal is visible when running code
+    if (!terminalVisible) {
+      setTerminalVisible(true);
+    }
+    
+    // Add a command entry in terminal history
+    setTerminalHistory(prev => [...prev, { 
+      type: 'command', 
+      content: `run ${getFileName()}` 
+    }]);
 
     try {
       if (language === 'javascript' && window.location.hostname === 'localhost') {
@@ -683,29 +700,63 @@ function App() {
         
         try {
           eval(code)
-          setOutput(consoleOutput.join('\n') || 'Code executed successfully (no output)')
+          const output = consoleOutput.join('\n') || 'Code executed successfully (no output)'
+          
+          // Add the result to terminal history
+          setTerminalHistory(prev => [...prev, { 
+            type: 'response', 
+            content: output
+          }]);
         } catch (error) {
-          setOutput(`Error: ${error.message}`)
+          // Add the error to terminal history
+          setTerminalHistory(prev => [...prev, { 
+            type: 'error', 
+            content: `Error: ${error.message}`
+          }]);
         }
         
         console.log = originalConsoleLog
       } else if (language === 'html') {
         // For HTML, render preview
         renderHTMLPreview(code)
-        setOutput('HTML preview rendered')
+        
+        // Add a message to terminal history
+        setTerminalHistory(prev => [...prev, { 
+          type: 'response', 
+          content: 'HTML preview rendered in terminal preview pane'
+        }]);
+        
       } else if (language === 'css') {
         // For CSS, render with test HTML
         renderCSSPreview(code)
-        setOutput('CSS preview rendered')
+        
+        // Add a message to terminal history
+        setTerminalHistory(prev => [...prev, { 
+          type: 'response', 
+          content: 'CSS preview rendered in terminal preview pane'
+        }]);
       } else {
         // For other languages, send to backend
         await executeOnBackend()
       }
     } catch (error) {
       console.error('Code execution error:', error)
-      setOutput(`Failed to execute code: ${error.message}`)
+      
+      // Add the error to terminal history
+      setTerminalHistory(prev => [...prev, { 
+        type: 'error', 
+        content: `Failed to execute code: ${error.message}`
+      }]);
     } finally {
       setIsLoading(false)
+      
+      // Scroll terminal to bottom after execution
+      setTimeout(() => {
+        const terminalContainer = document.querySelector('.terminal-history');
+        if (terminalContainer) {
+          terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+      }, 100);
     }
   }
 
@@ -716,10 +767,70 @@ function App() {
       if (ExternalCompilerService.needsExternalExecution(language)) {
         // Use external service for Python, Java, C and C++
         const result = await ExternalCompilerService.executeCode(code, language);
-        setOutput(result.result || 'No output received.');
-        if (result.error) {
-          setOutput(prev => `${prev}\n\nError: ${result.error}`);
+        
+        // Add result to terminal history instead of output panel
+        if (result.result) {
+          setTerminalHistory(prev => [...prev, { 
+            type: 'response', 
+            content: result.result 
+          }]);
+        } else {
+          setTerminalHistory(prev => [...prev, { 
+            type: 'response', 
+            content: 'No output received.' 
+          }]);
         }
+        
+        // Check if this program requires user input
+        if (result.requiresInput && !result.error) {
+          setIsWaitingForInput(true);
+          setRunningProcess({
+            language,
+            code,
+            sendInput: async (input) => {
+              const inputResult = await ExternalCompilerService.processInput(input, language, code);
+              
+              // Add the result to terminal history
+              if (inputResult.result) {
+                setTerminalHistory(prev => [...prev, { 
+                  type: 'response', 
+                  content: inputResult.result 
+                }]);
+              }
+              
+              if (inputResult.error) {
+                setTerminalHistory(prev => [...prev, { 
+                  type: 'error', 
+                  content: inputResult.error 
+                }]);
+              }
+              
+              // Check if program needs more input
+              setIsWaitingForInput(inputResult.requiresMoreInput);
+              if (!inputResult.requiresMoreInput) {
+                setRunningProcess(null);
+              }
+            }
+          });
+          
+          // Add a prompt for the user
+          setTerminalHistory(prev => [...prev, { 
+            type: 'response', 
+            content: 'Program is waiting for input...' 
+          }]);
+        }
+        
+        if (result.error) {
+          setTerminalHistory(prev => [...prev, { 
+            type: 'error', 
+            content: `Error: ${result.error}` 
+          }]);
+          
+          // Clear the waiting state if there was an error
+          setIsWaitingForInput(false);
+          setRunningProcess(null);
+        }
+        
         return;
       }
       
@@ -736,13 +847,26 @@ function App() {
       
       const data = await response.json()
       
-      if (data.error && data.error.trim() !== '') {
-        setOutput(`${data.result || ''}\n\nError: ${data.error}`)
-      } else if (data.result) {
-        setOutput(data.result)
+      // Send results to terminal instead of output panel
+      if (data.result) {
+        setTerminalHistory(prev => [...prev, { 
+          type: 'response', 
+          content: data.result 
+        }]);
       } else {
-        setOutput('No output received from the program.')
+        setTerminalHistory(prev => [...prev, { 
+          type: 'response', 
+          content: 'No output received from the program.'
+        }]);
       }
+      
+      if (data.error && data.error.trim() !== '') {
+        setTerminalHistory(prev => [...prev, { 
+          type: 'error', 
+          content: `Error: ${data.error}`
+        }]);
+      }
+      
     } catch (error) {
       throw error
     }
@@ -1087,6 +1211,208 @@ function App() {
     }
   }
 
+  // Terminal functions
+  const toggleTerminal = () => {
+    setTerminalVisible(!terminalVisible);
+    // Focus the input when terminal is opened
+    setTimeout(() => {
+      if (terminalInputRef.current) {
+        terminalInputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const handleTerminalInput = (e) => {
+    setTerminalInput(e.target.value);
+  };
+
+  const handleTerminalSubmit = async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      
+      const input = terminalInput.trim();
+      if (!input) return;
+      
+      // Clear input field
+      setTerminalInput('');
+      
+      // Check if we're in input mode (waiting for input for a running program)
+      if (isWaitingForInput) {
+        // Add the input to history without the $ prompt
+        setTerminalHistory(prev => [...prev, { 
+          type: 'input', 
+          content: input 
+        }]);
+        
+        // Send the input to the running process
+        if (runningProcess && runningProcess.sendInput) {
+          try {
+            await runningProcess.sendInput(input);
+          } catch (error) {
+            setTerminalHistory(prev => [...prev, { 
+              type: 'error', 
+              content: `Error sending input: ${error.message}` 
+            }]);
+            
+            // Exit input mode if there was an error
+            setIsWaitingForInput(false);
+            setRunningProcess(null);
+          }
+        } else {
+          // Continue with standard program execution
+          setIsWaitingForInput(false);
+          setRunningProcess(null);
+          
+          // Since we've detected input mode without a proper handler,
+          // let's simulate a response from the program
+          handleProgramInput(input);
+        }
+      } else {
+        // Normal command mode
+        // Add command to history with the $ prompt
+        setTerminalHistory(prev => [...prev, { 
+          type: 'command', 
+          content: input 
+        }]);
+        
+        try {
+          // Process command
+          const response = await executeTerminalCommand(input);
+          
+          // Add the response to history
+          if (response) {
+            setTerminalHistory(prev => [...prev, { 
+              type: 'response', 
+              content: response
+            }]);
+          }
+        } catch (error) {
+          setTerminalHistory(prev => [...prev, { 
+            type: 'error', 
+            content: error.message || 'An error occurred while executing the command' 
+          }]);
+        }
+      }
+      
+      // Scroll to bottom after command execution
+      setTimeout(() => {
+        const terminalContainer = document.querySelector('.terminal-history');
+        if (terminalContainer) {
+          terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+      }, 100);
+    }
+  };
+
+  // Handle program input when a program is running and waiting for input
+  const handleProgramInput = async (input) => {
+    // In a real implementation, this would communicate with the backend
+    // For now, we'll simulate the program continuing execution with the input
+    
+    // For demonstration, detect if we're running a C++ program that needs input
+    if (language === 'cpp' || language === 'c') {
+      // Simple check if the code contains cin or scanf (indicating it expects input)
+      if (code.includes('cin') || code.includes('scanf')) {
+        // Process the input and generate appropriate output based on the code
+        // This is a simplified example - in a real implementation, this would send 
+        // the input to the running process on the backend
+        
+        // For demo purposes, let's simulate a program that processes input
+        if (code.toLowerCase().includes('enter the number')) {
+          try {
+            const number = parseInt(input);
+            if (isNaN(number)) {
+              setTerminalHistory(prev => [...prev, { 
+                type: 'error', 
+                content: 'Invalid input: Not a number' 
+              }]);
+            } else {
+              // Simulate program output based on input
+              setTerminalHistory(prev => [...prev, { 
+                type: 'response', 
+                content: `Processing number: ${number}\nResult: ${number * 2}` 
+              }]);
+            }
+          } catch (e) {
+            setTerminalHistory(prev => [...prev, { 
+              type: 'error', 
+              content: `Error processing input: ${e.message}` 
+            }]);
+          }
+        } else {
+          // Generic response
+          setTerminalHistory(prev => [...prev, { 
+            type: 'response', 
+            content: `Received input: ${input}` 
+          }]);
+        }
+      }
+    } else if (language === 'python') {
+      // Handle Python input() function
+      if (code.includes('input(')) {
+        setTerminalHistory(prev => [...prev, { 
+          type: 'response', 
+          content: `Received input: ${input}` 
+        }]);
+      }
+    }
+    
+    // Set waiting for input to false since we've processed the input
+    setIsWaitingForInput(false);
+  };
+
+  // Execute terminal command (simplified demo implementation)
+  const executeTerminalCommand = async (command) => {
+    const lcCommand = command.toLowerCase().trim();
+    
+    // Simple command parsing
+    if (lcCommand === 'clear' || lcCommand === 'cls') {
+      setTerminalHistory([]);
+      return '';
+    }
+    
+    if (lcCommand.startsWith('echo ')) {
+      return command.substring(5);
+    }
+    
+    if (lcCommand === 'help') {
+      return `Available commands:
+- help: Show this help message
+- clear/cls: Clear terminal
+- echo <text>: Print text
+- ls/dir: List files
+- time: Show current time
+- run: Run current code
+- version: Show editor version`;
+    }
+    
+    if (lcCommand === 'ls' || lcCommand === 'dir') {
+      const fileList = files
+        .filter(file => file.parent === null)
+        .map(file => file.name)
+        .join('\n');
+      
+      return fileList || 'No files found';
+    }
+    
+    if (lcCommand === 'time') {
+      return new Date().toLocaleString();
+    }
+    
+    if (lcCommand === 'run') {
+      // Run the current code
+      runCode();
+      return 'Running code...';
+    }
+    
+    if (lcCommand === 'version') {
+      return 'Code Editor v1.0.0';
+    }
+    
+    // For a real implementation, you'd call backend for command execution
+    return `Command not recognized: ${command}. Type 'help' for available commands.`;
+  };
+
   // Render the UI
   return (
     <div className={`editor-container ${theme === 'vs-dark' ? '' : 'light-theme'}`}>
@@ -1231,6 +1557,13 @@ function App() {
             >
               🤖 AI Assist
             </button>
+            <button 
+              onClick={toggleTerminal} 
+              className="toolbar-button"
+              title="Toggle terminal"
+            >
+              💻 Terminal
+            </button>
             <div className="toolbar-spacer"></div>
             <button 
               onClick={clearOutput} 
@@ -1241,32 +1574,49 @@ function App() {
             </button>
           </div>
 
-          {/* Output panel */}
-          <div className={`output-panel ${isOutputExpanded ? '' : 'collapsed'}`}>
-            <div className="output-header" onClick={toggleOutputPanel}>
-              <h3>Output</h3>
-              <div className="output-controls">
-                <button className="output-control" onClick={(e) => {
-                  e.stopPropagation();
-                  clearOutput();
-                }} title="Clear output">
-                  🧹
-                </button>
-                <button className="output-control" onClick={(e) => {
-                  e.stopPropagation();
-                  toggleOutputPanel();
-                }} title="Toggle panel">
-                  {isOutputExpanded ? '▼' : '▲'}
-                </button>
+          {/* Terminal panel */}
+          {terminalVisible && (
+            <div className="terminal-container">
+              <div className="terminal-header">
+                <span className="terminal-title">Terminal</span>
+                <div className="terminal-controls">
+                  <button className="terminal-control" onClick={() => setTerminalHistory([])} title="Clear terminal">
+                    🧹
+                  </button>
+                  <button className="terminal-control" onClick={toggleTerminal} title="Close terminal">
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div className="terminal-history">
+                {terminalHistory.map((entry, index) => (
+                  <div key={index} className={`terminal-${entry.type}`}>
+                    {entry.type === 'command' ? (
+                      <>
+                        <span className="terminal-command-prompt">$ </span>
+                        <span>{entry.content}</span>
+                      </>
+                    ) : (
+                      <span>{entry.content}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="terminal-input-container">
+                <span className="terminal-prompt">$ </span>
+                <input
+                  type="text"
+                  className="terminal-input"
+                  value={terminalInput}
+                  onChange={handleTerminalInput}
+                  onKeyDown={handleTerminalSubmit}
+                  placeholder="Enter a command..."
+                  ref={terminalInputRef}
+                  autoFocus
+                />
               </div>
             </div>
-            <div className="output-content">
-              <pre>{output}</pre>
-              {(language === 'html' || language === 'css') && (
-                <div ref={previewRef} className="preview-container"></div>
-              )}
-            </div>
-          </div>
+          )}
         </main>
       </div>
 

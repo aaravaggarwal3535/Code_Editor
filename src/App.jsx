@@ -3,6 +3,144 @@ import Editor from '@monaco-editor/react'
 import './App.css'
 import ExternalCompilerService from './externalCompilerService'
 import API_CONFIG from './apiConfig'
+import Settings from './Settings';
+
+// Add this near the top with other state declarations
+const defaultEditorSettings = {
+  fontSize: {
+    label: 'Font Size',
+    description: 'Controls the font size in pixels',
+    type: 'number',
+    default: 14,
+    min: 8,
+    max: 32,
+    section: 'editor'
+  },
+  fontFamily: {
+    label: 'Font Family',
+    description: 'Controls the font family',
+    type: 'select',
+    default: 'Consolas, "Courier New", monospace',
+    options: [
+      { label: 'Consolas', value: 'Consolas, "Courier New", monospace' },
+      { label: 'Fira Code', value: '"Fira Code", monospace' },
+      { label: 'Monaco', value: 'Monaco, monospace' },
+      { label: 'Source Code Pro', value: '"Source Code Pro", monospace' }
+    ],
+    section: 'editor'
+  },
+  tabSize: {
+    label: 'Tab Size',
+    description: 'Controls the number of spaces a tab is equal to',
+    type: 'number',
+    default: 2,
+    min: 1,
+    max: 8,
+    section: 'editor'
+  },
+  minimap: {
+    label: 'Show Minimap',
+    description: 'Controls if the minimap is shown',
+    type: 'checkbox',
+    default: true,
+    section: 'editor'
+  },
+  wordWrap: {
+    label: 'Word Wrap',
+    description: 'Controls how lines should wrap',
+    type: 'select',
+    default: 'off',
+    options: [
+      { label: 'Off', value: 'off' },
+      { label: 'On', value: 'on' },
+      { label: 'Word Wrap', value: 'wordWrapColumn' },
+      { label: 'Bounded', value: 'bounded' }
+    ],
+    section: 'editor'
+  },
+  lineNumbers: {
+    label: 'Line Numbers',
+    description: 'Controls the display of line numbers',
+    type: 'select',
+    default: 'on',
+    options: [
+      { label: 'Off', value: 'off' },
+      { label: 'On', value: 'on' },
+      { label: 'Relative', value: 'relative' }
+    ],
+    section: 'editor'
+  },
+  cursorStyle: {
+    label: 'Cursor Style',
+    description: 'Controls the cursor style',
+    type: 'select',
+    default: 'line',
+    options: [
+      { label: 'Line', value: 'line' },
+      { label: 'Block', value: 'block' },
+      { label: 'Underline', value: 'underline' }
+    ],
+    section: 'editor'
+  },
+  cursorBlinking: {
+    label: 'Cursor Blinking',
+    description: 'Controls the cursor animation style',
+    type: 'select',
+    default: 'blink',
+    options: [
+      { label: 'Blink', value: 'blink' },
+      { label: 'Smooth', value: 'smooth' },
+      { label: 'Phase', value: 'phase' },
+      { label: 'Expand', value: 'expand' },
+      { label: 'Solid', value: 'solid' }
+    ],
+    section: 'editor'
+  },
+  scrollBeyondLastLine: {
+    label: 'Scroll Beyond Last Line',
+    description: 'Controls if the editor scrolls beyond the last line',
+    type: 'checkbox',
+    default: true,
+    section: 'editor'
+  },
+  formatOnPaste: {
+    label: 'Format On Paste',
+    description: 'Format content when pasting into the editor',
+    type: 'checkbox',
+    default: true,
+    section: 'editor'
+  },
+  formatOnType: {
+    label: 'Format On Type',
+    description: 'Format content as you type in the editor',
+    type: 'checkbox',
+    default: false,
+    section: 'editor'
+  },
+  autoSave: {
+    label: 'Auto Save',
+    description: 'Controls auto save of the editor content',
+    type: 'select',
+    default: 'off',
+    options: [
+      { label: 'Off', value: 'off' },
+      { label: 'After Delay', value: 'afterDelay' },
+      { label: 'On Focus Change', value: 'onFocusChange' }
+    ],
+    section: 'features'
+  },
+  theme: {
+    label: 'Color Theme',
+    description: 'Controls the color theme of the editor',
+    type: 'select',
+    default: 'vs-dark',
+    options: [
+      { label: 'Dark', value: 'vs-dark' },
+      { label: 'Light', value: 'vs-light' }
+    ],
+    section: 'workbench'
+  }
+};
 
 function App() {
   // Core state
@@ -43,6 +181,21 @@ function App() {
   const [newItemName, setNewItemName] = useState('')
   const [expandedFolders, setExpandedFolders] = useState({})
 
+  // Add this state for editor settings
+  const [editorSettings, setEditorSettings] = useState(() => {
+    // Initialize with default values
+    const settings = {};
+    Object.entries(defaultEditorSettings).forEach(([key, setting]) => {
+      settings[key] = setting.default;
+    });
+    return settings;
+  });
+
+  // Add this handler for saving settings
+  const handleSaveSettings = (newSettings) => {
+    setEditorSettings(newSettings);
+  };
+
   // Language configurations
   const starterCode = {
     javascript: '// Write your JavaScript code here\nconsole.log("Hello, world!");',
@@ -55,16 +208,70 @@ function App() {
   }
 
   const languageIcons = {
-    javascript: '📜',
-    python: '🐍',
-    java: '☕',
-    cpp: '⚙️',
-    c: '🔧',
-    html: '🌐',
-    css: '🎨',
-    txt: '📄',
-    md: '📝',
-    json: '📊',
+    // Programming Languages
+    js: '⚡', // JavaScript
+    jsx: '⚛️', // React JSX
+    ts: '📘', // TypeScript
+    tsx: '📘', // TypeScript React
+    py: '🐍', // Python
+    java: '☕', // Java
+    cpp: '⚡', // C++
+    c: '©️', // C
+    cs: '🔷', // C#
+    rb: '💎', // Ruby
+    php: '🐘', // PHP
+    go: '🔹', // Go
+    rs: '⚙️', // Rust
+    swift: '🔶', // Swift
+    kt: '🎯', // Kotlin
+
+    // Web Technologies
+    html: '🌐', // HTML
+    css: '🎨', // CSS
+    scss: '💅', // SCSS
+    less: '💄', // LESS
+    json: '📋', // JSON
+    xml: '📰', // XML
+    svg: '🖼️', // SVG
+    yaml: '📝', // YAML
+    yml: '📝', // YML
+
+    // Documentation
+    md: '📑', // Markdown
+    txt: '📄', // Text
+    doc: '📘', // Word Document
+    docx: '📘', // Word Document
+    pdf: '📕', // PDF
+
+    // Configuration Files
+    env: '⚙️', // Environment Variables
+    config: '⚙️', // Config
+    ini: '⚙️', // INI Configuration
+    toml: '⚙️', // TOML
+    conf: '⚙️', // Conf
+
+    // Shell Scripts
+    sh: '💻', // Shell Script
+    bash: '💻', // Bash Script
+    zsh: '💻', // Zsh Script
+    bat: '💻', // Batch Script
+    ps1: '💻', // PowerShell Script
+
+    // Data Files
+    csv: '📊', // CSV
+    xls: '📊', // Excel
+    xlsx: '📊', // Excel
+    sql: '🗃️', // SQL
+
+    // Images
+    png: '🖼️',
+    jpg: '🖼️',
+    jpeg: '🖼️',
+    gif: '🖼️',
+    ico: '🖼️',
+    webp: '🖼️',
+
+    // Default
     default: '📄'
   }
 
@@ -806,6 +1013,16 @@ function App() {
             </div>
           </div>
         );
+
+      case 'settings':
+        return (
+          <Settings 
+            settings={editorSettings}
+            onSave={handleSaveSettings}
+            defaultSettings={defaultEditorSettings}
+            theme={theme}
+          />
+        );
         
       default:
         return null;
@@ -866,6 +1083,13 @@ function App() {
             title="Extensions"
           >
             🧩
+          </div>
+          <div 
+            className={`activity-bar-item ${activeSidebarItem === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveSidebarItem('settings')}
+            title="Settings"
+          >
+            ⚙️
           </div>
         </div>
 

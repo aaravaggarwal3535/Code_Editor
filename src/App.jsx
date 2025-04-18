@@ -154,6 +154,11 @@ function App() {
       fileType = fileExt
     }
     
+    // Special case for Python files
+    if (fileExt === 'py') {
+      fileType = 'python'
+    }
+    
     const newFile = {
       id: `file_${Date.now()}`,
       name: newFileName,

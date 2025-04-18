@@ -1185,17 +1185,7 @@ function App() {
             </div>
           </div>
         );
-        
-      case 'extensions':
-        return (
-          <div className="extensions-view">
-            <div className="extensions-placeholder">
-              <p>Extensions would be listed here</p>
-              <button className="sidebar-button">Install Extensions</button>
-            </div>
-          </div>
-        );
-
+      
       case 'settings':
         return (
           <Settings 
@@ -1460,13 +1450,6 @@ function App() {
             title="Run and Debug"
           >
             🐞
-          </div>
-          <div 
-            className={`activity-bar-item ${activeSidebarItem === 'extensions' ? 'active' : ''}`}
-            onClick={() => setActiveSidebarItem('extensions')}
-            title="Extensions"
-          >
-            🧩
           </div>
           <div 
             className={`activity-bar-item ${activeSidebarItem === 'settings' ? 'active' : ''}`}

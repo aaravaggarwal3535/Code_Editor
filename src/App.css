@@ -333,66 +333,6 @@
   margin: 12px;
 }
 
-/* Extensions View */
-.extensions-search {
-  margin: 0 12px 12px;
-  padding: 6px 8px;
-  width: calc(100% - 24px);
-  font-size: 13px;
-  color: var(--text-color);
-  background-color: var(--input-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-}
-
-.extensions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 12px;
-}
-
-.extension-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 4px;
-}
-
-.extension-item:hover {
-  background-color: var(--hover-bg);
-  cursor: pointer;
-}
-
-.extension-icon {
-  font-size: 20px;
-  color: var(--text-color);
-}
-
-.extension-info {
-  flex: 1;
-}
-
-.extension-name {
-  font-size: 13px;
-}
-
-.extension-publisher {
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.extension-button {
-  padding: 4px 8px;
-  font-size: 11px;
-  color: var(--text-color);
-  background-color: var(--bg-lighter);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
 /* GitHub-style status bar */
 .github-status-bar {
   height: 24px;
@@ -638,14 +578,14 @@
 }
 
 /* Git View */
-.git-view, .debug-view, .extensions-view {
+.git-view, .debug-view {
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.git-placeholder, .debug-placeholder, .extensions-placeholder {
+.git-placeholder, .debug-placeholder {
   display: flex;
   flex-direction: column;
   gap: 12px;
